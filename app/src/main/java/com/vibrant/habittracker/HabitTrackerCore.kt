@@ -68,6 +68,17 @@ object AppColors {
     val SolarGold = Color(0xFFFBBF24)
     val IndigoPulse = Color(0xFF6366F1)
 
+    // Backward-compatible aliases so older MainActivity versions also compile
+    val NeonGreen = MintGlow
+    val NeonGreenGlow = Color(0xFF064E3B)
+    val MintGreen = MintGlow
+    val LavenderPurple = ElectricViolet
+    val PeriwinkleBlue = IndigoPulse
+    val CoralOrange = SunsetCoral
+    val RoseRed = CrimsonRose
+    val AmberGold = SolarGold
+    val BorderDark = BorderSubtle
+
     val TextPrimary = Color(0xFFF8FAFC)
     val TextSecondary = Color(0xFF94A3B8)
     val TextMuted = Color(0xFF64748B)
@@ -81,12 +92,9 @@ object AppColors {
         CrimsonRose,
         IndigoPulse
     )
+    val AccentPresets = StudioPalette
 }
 
-/**
- * Eye-Soothing Sanctuary Themes specifically designed for long reading & writing
- * sessions in the Journal and Second-Brain Vault.
- */
 enum class SanctuaryReadingTheme(
     val label: String,
     val bgHex: Long,
@@ -142,7 +150,7 @@ enum class SanctuaryReadingTheme(
 }
 
 // ============================================================================
-// 2. IMMUTABLE DATA MODELS (Battery & Recomposition Optimized)
+// 2. DATA MODELS
 // ============================================================================
 enum class HabitType(val label: String) {
     CHECKLIST("Checklist"),
@@ -162,7 +170,9 @@ enum class TimeOfDay(val label: String, val icon: String) {
 enum class HabitViewMode {
     STUDIO_CARDS,
     HEATMAP_GRID,
-    COMPACT_WEEKLY
+    COMPACT_WEEKLY,
+    GRID_VIEW,
+    WEEKLY_VIEW
 }
 
 @Immutable
@@ -178,8 +188,9 @@ data class Habit(
     val targetValue: Float = 1f,
     val unit: String = "times",
     val stepSize: Float = 1f,
-    val reminderTime: String = "", // "HH:mm" e.g. "07:30" or empty if off
+    val reminderTime: String = "",
     val logs: Map<String, Float> = emptyMap(),
+    val notesPerDay: Map<String, String> = emptyMap(),
     val createdAt: String = LocalDate.now().toString()
 ) {
     val accentColor: Color get() = Color(colorHex)
@@ -228,6 +239,9 @@ data class Habit(
         }
         return ((completed / 30f) * 100f).toInt()
     }
+
+    fun totalVolume(): Float = logs.values.filter { it > 0f }.sum()
+    fun totalLoggedValue(): Float = totalVolume()
 }
 
 enum class TodoPriority(val label: String, val colorHex: Long, val xpReward: Int) {
@@ -251,12 +265,14 @@ data class TodoTask(
     val category: String = "Personal",
     val priority: TodoPriority = TodoPriority.P2_HIGH,
     val date: String = LocalDate.now().toString(),
-    val reminderTime: String = "", // "HH:mm" e.g. "14:00"
+    val timeBlock: String = "Anytime",
+    val reminderTime: String = "",
     val isCompleted: Boolean = false,
     val isRecurring: Boolean = false,
     val estimatedMinutes: Int = 25,
     val subTasks: List<SubTask> = emptyList(),
-    val notes: String = ""
+    val notes: String = "",
+    val note: String = ""
 )
 
 @Immutable
@@ -267,18 +283,20 @@ data class JournalEntry(
     val title: String = "Daily Sanctuary Reflection",
     val moodEmoji: String = "🌟",
     val energyScore: Int = 8,
-    val gratitudeOrWins: String,
-    val dailyStory: String,
-    val frictionOrMistakes: String,
+    val gratitudeOrWins: String = "",
+    val dailyStory: String = "",
+    val frictionOrMistakes: String = "",
     val actionItems: List<String> = emptyList(),
     val photoUris: List<String> = emptyList(),
-    val tags: List<String> = emptyList()
+    val tags: List<String> = emptyList(),
+    val timestamp: Long = System.currentTimeMillis()
 )
 
 enum class NoteCategory(val label: String) {
     BOOK_SUMMARY("Book Summary"),
     SECOND_BRAIN("Mental Model / Note"),
-    PROJECT_PLAN("Blueprint")
+    PROJECT_PLAN("Blueprint"),
+    GENERAL_NOTE("General Note")
 }
 
 @Immutable
@@ -292,7 +310,7 @@ data class NotebookEntry(
     val id: String = UUID.randomUUID().toString(),
     val category: NoteCategory = NoteCategory.BOOK_SUMMARY,
     val title: String,
-    val authorOrSubtitle: String,
+    val authorOrSubtitle: String = "",
     val rating: Int = 5,
     val readingProgress: Int = 100,
     val isPinned: Boolean = false,
@@ -305,7 +323,7 @@ data class NotebookEntry(
 )
 
 // ============================================================================
-// 3. BATTERY-FRIENDLY SYNTHESIZED SOUND ENGINE (Celebration & Motivational Chime)
+// 3. SYNTHESIZED SOUND ENGINE (Celebration & Motivational Notification Chime)
 // ============================================================================
 object CelebrationSoundEngine {
 
@@ -331,18 +349,14 @@ object CelebrationSoundEngine {
         playSynthesizedSequence(notes, durationSeconds = if (isLevelUp) 1.4 else 1.05)
     }
 
-    /**
-     * Plays an uplifting, warm motivational chime when a scheduled Habit/Task
-     * reminder notification fires.
-     */
     fun playMotivationalReminderSound(context: Context) {
         triggerHaptics(context, isLevelUp = true)
         val motivationalChord = listOf(
-            Triple(440.00, 0.00, 0.55), // A4
-            Triple(554.37, 0.12, 0.55), // C#5
-            Triple(659.25, 0.24, 0.60), // E5
-            Triple(880.00, 0.36, 0.90), // A5
-            Triple(1108.73, 0.50, 0.95) // C#6
+            Triple(440.00, 0.00, 0.55),
+            Triple(554.37, 0.12, 0.55),
+            Triple(659.25, 0.24, 0.60),
+            Triple(880.00, 0.36, 0.90),
+            Triple(1108.73, 0.50, 0.95)
         )
         playSynthesizedSequence(motivationalChord, durationSeconds = 1.45)
     }
@@ -354,7 +368,7 @@ object CelebrationSoundEngine {
         Thread {
             var track: AudioTrack? = null
             try {
-                val sampleRate = 24000 // Lower sample rate = 50% less RAM & CPU while sounding crisp
+                val sampleRate = 24000
                 val numSamples = (sampleRate * durationSeconds).toInt()
                 val buffer = ShortArray(numSamples)
 
@@ -423,7 +437,7 @@ object CelebrationSoundEngine {
 }
 
 // ============================================================================
-// 4. SCHEDULED MOTIVATIONAL NOTIFICATIONS (AlarmManager + BroadcastReceiver)
+// 4. SCHEDULED MOTIVATIONAL NOTIFICATIONS
 // ============================================================================
 object ReminderScheduler {
     private val motivationalQuotes = listOf(
@@ -497,7 +511,6 @@ class MotivationReminderReceiver : BroadcastReceiver() {
         val timeStr = intent.getStringExtra("EXTRA_TIME") ?: ""
         val isHabit = intent.getBooleanExtra("EXTRA_IS_HABIT", true)
 
-        // Play synthesized motivational chime
         CelebrationSoundEngine.playMotivationalReminderSound(context)
 
         val channelId = "zenith_motivation_channel"
@@ -536,7 +549,6 @@ class MotivationReminderReceiver : BroadcastReceiver() {
 
         nm.notify(id.hashCode(), notification)
 
-        // Reschedule for tomorrow if it's a daily habit
         if (isHabit && timeStr.isNotBlank()) {
             ReminderScheduler.scheduleReminder(context, id, title, timeStr, true)
         }
@@ -544,7 +556,7 @@ class MotivationReminderReceiver : BroadcastReceiver() {
 }
 
 // ============================================================================
-// 5. INTERACTIVE HOME SCREEN WIDGET PROVIDER (Complete Habits Without Opening App)
+// 5. INTERACTIVE HOME SCREEN WIDGET PROVIDER
 // ============================================================================
 class HabitWidgetProvider : AppWidgetProvider() {
 
@@ -592,7 +604,6 @@ class HabitWidgetProvider : AppWidgetProvider() {
                     val views = RemoteViews(context.packageName, R.layout.habit_widget_layout)
                     views.setTextViewText(R.id.widget_header_score, "$doneCount/${habits.size} Done")
 
-                    // Tap header to launch app
                     val openAppIntent = Intent(context, MainActivity::class.java)
                     val openPending = PendingIntent.getActivity(
                         context, 0, openAppIntent,
@@ -656,8 +667,8 @@ class StudioStorageManager(private val context: Context) {
         streakShields: Int,
         googleEmail: String?,
         autoBackup: Boolean,
-        readingTheme: SanctuaryReadingTheme,
-        readingFontScale: Float,
+        readingTheme: SanctuaryReadingTheme = SanctuaryReadingTheme.WARM_SEPIA,
+        readingFontScale: Float = 1.0f,
         habits: List<Habit>,
         todos: List<TodoTask>,
         journals: List<JournalEntry>,
@@ -720,10 +731,6 @@ class StudioStorageManager(private val context: Context) {
         return result
     }
 
-    /**
-     * Toggles a habit directly from the Home Screen Widget and updates saved JSON + XP.
-     * Returns the habit title if newly completed, or null if unchecked.
-     */
     fun toggleHabitDirectlyFromWidget(habitId: String): String? {
         val jsonStr = getSavedJson() ?: return null
         try {
@@ -843,6 +850,7 @@ class StudioStorageManager(private val context: Context) {
                 put("category", t.category)
                 put("priority", t.priority.name)
                 put("date", t.date)
+                put("timeBlock", t.timeBlock)
                 put("reminderTime", t.reminderTime)
                 put("isCompleted", t.isCompleted)
                 put("isRecurring", t.isRecurring)
@@ -903,7 +911,7 @@ class StudioStorageManager(private val context: Context) {
 }
 
 // ============================================================================
-// 7. STUDIO VIEWMODEL (Full Edit Support, Widget Sync, Sanctuary Mode & Alarms)
+// 7. STUDIO VIEWMODEL (Supports Both New Edit Methods & Legacy Method Calls)
 // ============================================================================
 class HabitTrackerViewModel : ViewModel() {
 
@@ -917,11 +925,9 @@ class HabitTrackerViewModel : ViewModel() {
     val habitViewMode = mutableStateOf(HabitViewMode.STUDIO_CARDS)
     val selectedDate = mutableStateOf(LocalDate.now())
 
-    // Sanctuary Eye-Soothing Mode for Journal & Vault
     val readingTheme = mutableStateOf(SanctuaryReadingTheme.WARM_SEPIA)
     val readingFontScale = mutableFloatStateOf(1.0f)
 
-    // Gamification
     val userXp = mutableIntStateOf(420)
     val streakShields = mutableIntStateOf(3)
 
@@ -936,7 +942,6 @@ class HabitTrackerViewModel : ViewModel() {
             else -> "Zenith Grandmaster"
         }
 
-    // Pomodoro Timer
     val activeFocusTitle = mutableStateOf("Deep Focus Session")
     val activeFocusHabitId = mutableStateOf<String?>(null)
     val focusRemainingSeconds = mutableLongStateOf(25 * 60L)
@@ -944,13 +949,11 @@ class HabitTrackerViewModel : ViewModel() {
     val isFocusTimerRunning = mutableStateOf(false)
     private var timerJob: Job? = null
 
-    // Full-Screen Celebration
     val showCelebration = mutableStateOf(false)
     val celebrationTitle = mutableStateOf("")
     val celebrationSubtitle = mutableStateOf("")
     val celebrationXpEarned = mutableIntStateOf(25)
 
-    // Cloud Backup
     val connectedGoogleEmail = mutableStateOf<String?>(null)
     val lastCloudBackup = mutableStateOf("Auto-saved locally")
     val autoCloudSync = mutableStateOf(true)
@@ -976,6 +979,9 @@ class HabitTrackerViewModel : ViewModel() {
             persistState(context)
         }
     }
+
+    // Backward-compatible alias
+    fun initializeIfNeeded(context: Context) = initializeOrRefreshFromDisk(context)
 
     fun persistState(context: Context): String {
         val storage = StudioStorageManager(context)
@@ -1044,6 +1050,7 @@ class HabitTrackerViewModel : ViewModel() {
                         category = o.optString("category", "Personal"),
                         priority = runCatching { TodoPriority.valueOf(o.optString("priority")) }.getOrDefault(TodoPriority.P2_HIGH),
                         date = o.optString("date", LocalDate.now().toString()),
+                        timeBlock = o.optString("timeBlock", "Anytime"),
                         reminderTime = o.optString("reminderTime", ""),
                         isCompleted = o.optBoolean("isCompleted", false),
                         isRecurring = o.optBoolean("isRecurring", false),
@@ -1207,7 +1214,7 @@ class HabitTrackerViewModel : ViewModel() {
         }
     }
 
-    // --- Habit Create, Edit, Toggle & Delete ---
+    // --- Habit Operations (New + Legacy Overloads) ---
     fun toggleOrStepHabit(context: Context, habit: Habit, date: LocalDate = selectedDate.value) {
         val index = habits.indexOfFirst { it.id == habit.id }
         if (index == -1) return
@@ -1247,6 +1254,9 @@ class HabitTrackerViewModel : ViewModel() {
             persistState(context)
         }
     }
+
+    fun toggleOrIncrementHabit(context: Context, habit: Habit, date: LocalDate = LocalDate.now()) =
+        toggleOrStepHabit(context, habit, date)
 
     fun setHabitMeasurement(context: Context, habit: Habit, newAmount: Float, date: LocalDate = selectedDate.value) {
         val index = habits.indexOfFirst { it.id == habit.id }
@@ -1329,13 +1339,28 @@ class HabitTrackerViewModel : ViewModel() {
         persistState(context)
     }
 
+    // Legacy overload
+    fun createHabit(
+        context: Context,
+        title: String,
+        emoji: String,
+        category: String,
+        timeOfDay: TimeOfDay,
+        cue: String,
+        type: HabitType,
+        colorHex: Long,
+        targetValue: Float,
+        unit: String,
+        stepSize: Float
+    ) = saveOrUpdateHabit(context, null, title, emoji, category, timeOfDay, cue, type, colorHex, targetValue, unit, stepSize, "")
+
     fun deleteHabit(context: Context, habitId: String) {
         ReminderScheduler.cancelReminder(context, habitId)
         habits.removeAll { it.id == habitId }
         persistState(context)
     }
 
-    // --- To-Do Create, Edit, Toggle & Delete ---
+    // --- To-Do Operations (New + Legacy Overloads) ---
     fun toggleTodo(context: Context, task: TodoTask) {
         val idx = todos.indexOfFirst { it.id == task.id }
         if (idx == -1) return
@@ -1426,13 +1451,25 @@ class HabitTrackerViewModel : ViewModel() {
         persistState(context)
     }
 
+    // Legacy overload
+    fun addTodoTask(
+        context: Context,
+        title: String,
+        category: String,
+        priority: TodoPriority,
+        timeBlock: String,
+        estimatedMinutes: Int,
+        subTaskTitles: List<String>,
+        isRecurring: Boolean
+    ) = saveOrUpdateTodoTask(context, null, title, category, priority, "", estimatedMinutes, subTaskTitles, isRecurring)
+
     fun deleteTodoTask(context: Context, id: String) {
         ReminderScheduler.cancelReminder(context, id)
         todos.removeAll { it.id == id }
         persistState(context)
     }
 
-    // --- Journal Create, Edit & Delete ---
+    // --- Journal Operations (New + Legacy Overloads) ---
     fun saveOrUpdateJournalEntry(
         context: Context,
         existingId: String?,
@@ -1512,12 +1549,27 @@ class HabitTrackerViewModel : ViewModel() {
         )
     }
 
+    // Legacy overload
+    fun addJournalEntry(
+        context: Context,
+        title: String,
+        moodEmoji: String,
+        energyScore: Int,
+        wins: String,
+        story: String,
+        mistakes: String,
+        actions: List<String>,
+        photos: List<String>,
+        tags: List<String>,
+        pushActionsToTodo: Boolean
+    ) = saveOrUpdateJournalEntry(context, null, title, moodEmoji, energyScore, wins, story, mistakes, actions, photos, tags, pushActionsToTodo)
+
     fun deleteJournalEntry(context: Context, id: String) {
         journals.removeAll { it.id == id }
         persistState(context)
     }
 
-    // --- Notebook Vault Create, Edit, Pin & Delete ---
+    // --- Notebook Vault Operations (New + Legacy Overloads) ---
     fun saveOrUpdateNotebookEntry(
         context: Context,
         existingId: String?,
@@ -1539,6 +1591,10 @@ class HabitTrackerViewModel : ViewModel() {
             xpEarned = 30
         )
     }
+
+    // Legacy overload
+    fun addNotebookEntry(context: Context, entry: NotebookEntry) =
+        saveOrUpdateNotebookEntry(context, null, entry)
 
     fun togglePinNote(context: Context, id: String) {
         val idx = notes.indexOfFirst { it.id == id }
@@ -1678,4 +1734,3 @@ class HabitTrackerViewModel : ViewModel() {
         )
     }
 }
-
