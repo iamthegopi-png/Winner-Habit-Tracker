@@ -2,6 +2,7 @@ package com.vibrant.habittracker
 
 import android.net.Uri
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -20,7 +21,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,7 +29,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
@@ -50,6 +49,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 import kotlin.math.cos
+import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.random.Random
 
@@ -62,216 +62,291 @@ class MainActivity : ComponentActivity() {
                 colorScheme = darkColorScheme(
                     background = AppColors.BgDeep,
                     surface = AppColors.BgCard,
-                    primary = AppColors.NeonGreen,
-                    secondary = AppColors.LavenderPurple,
+                    primary = AppColors.MintGlow,
+                    secondary = AppColors.ElectricViolet,
                     onBackground = AppColors.TextPrimary,
                     onSurface = AppColors.TextPrimary
                 )
             ) {
-                PulseHabitApp()
+                StudioHabitApp()
             }
         }
     }
 }
 
 // ============================================================================
-// MAIN SCAFFOLD & NAVIGATION
+// MAIN STUDIO SCAFFOLD, GAMIFICATION HEADER & NAVIGATION
 // ============================================================================
 @Composable
-fun PulseHabitApp(vm: HabitTrackerViewModel = viewModel()) {
+fun StudioHabitApp(vm: HabitTrackerViewModel = viewModel()) {
     val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        vm.initializeIfNeeded(context)
+    }
+
     var currentTab by remember { mutableIntStateOf(0) }
-    var showAnalyticsModal by remember { mutableStateOf(false) }
-    var showCloudBackupModal by remember { mutableStateOf(false) }
-    var showAddHabitDialog by remember { mutableStateOf(false) }
+    var showAnalyticsSheet by remember { mutableStateOf(false) }
+    var showCloudVaultModal by remember { mutableStateOf(false) }
+    var showFocusTimerModal by remember { mutableStateOf(false) }
+    var showCreateHabitModal by remember { mutableStateOf(false) }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(AppColors.BgDeep)
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(Color(0xFF0B101B), AppColors.BgDeep, Color(0xFF05070B))
+                )
+            )
             .systemBarsPadding()
     ) {
         Scaffold(
-            containerColor = AppColors.BgDeep,
+            containerColor = Color.Transparent,
             topBar = {
-                TopHeaderBar(
+                StudioGamifiedHeader(
                     vm = vm,
-                    onOpenAnalytics = { showAnalyticsModal = true },
-                    onOpenCloud = { showCloudBackupModal = true }
+                    onOpenTimer = { showFocusTimerModal = true },
+                    onOpenAnalytics = { showAnalyticsSheet = true },
+                    onOpenCloud = { showCloudVaultModal = true }
                 )
             },
             bottomBar = {
-                VibrantBottomBar(
+                StudioBottomDock(
                     currentTab = currentTab,
                     onSelectTab = { currentTab = it },
-                    onQuickAddHabit = { showAddHabitDialog = true }
+                    onQuickAction = {
+                        when (currentTab) {
+                            0 -> showCreateHabitModal = true
+                            else -> showFocusTimerModal = true
+                        }
+                    }
                 )
             }
         ) { innerPadding ->
-            Box(
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
             ) {
+                // Live Active Pomodoro Banner (Visible anywhere when timer is running)
+                AnimatedVisibility(visible = vm.isFocusTimerRunning.value) {
+                    ActiveFocusTimerBanner(
+                        vm = vm,
+                        onExpand = { showFocusTimerModal = true }
+                    )
+                }
+
                 AnimatedContent(
                     targetState = currentTab,
                     transitionSpec = {
-                        fadeIn(tween(240)) + slideInVertically(tween(240)) { it / 18 } togetherWith
+                        fadeIn(tween(260)) + slideInVertically(tween(260)) { it / 16 } togetherWith
                                 fadeOut(tween(180))
                     },
-                    label = "MainTabs"
+                    label = "StudioTabSwitcher"
                 ) { tab ->
                     when (tab) {
-                        0 -> HabitTrackerScreen(
+                        0 -> StudioHabitTrackerSection(
                             vm = vm,
-                            onAddHabitClick = { showAddHabitDialog = true },
-                            onOpenAnalytics = { showAnalyticsModal = true }
+                            onNewHabit = { showCreateHabitModal = true },
+                            onLaunchFocusTimer = { habit ->
+                                vm.startFocusTimer(
+                                    context = context,
+                                    title = "${habit.emoji} ${habit.title}",
+                                    minutes = if (habit.type == HabitType.FOCUS_TIMER) habit.stepSize.toInt().coerceAtLeast(15) else 25,
+                                    habitId = habit.id
+                                )
+                                showFocusTimerModal = true
+                            },
+                            onOpenAnalytics = { showAnalyticsSheet = true }
                         )
-                        1 -> TodoTimelineScreen(vm = vm)
-                        2 -> ReflectionJournalScreen(vm = vm)
-                        3 -> AdvancedNotebookScreen(vm = vm)
+                        1 -> StudioTodoMatrixSection(
+                            vm = vm,
+                            onLaunchTaskTimer = { task ->
+                                vm.startFocusTimer(
+                                    context = context,
+                                    title = "🎯 ${task.title}",
+                                    minutes = task.estimatedMinutes.coerceAtLeast(10),
+                                    habitId = null
+                                )
+                                showFocusTimerModal = true
+                            }
+                        )
+                        2 -> StudioReflectionJournalSection(vm = vm)
+                        3 -> StudioSecondBrainNotebookSection(vm = vm)
                     }
                 }
             }
         }
 
-        // Analytics Modal (Matches Image 1)
-        if (showAnalyticsModal) {
-            AnalyticsFullModal(
+        // Deep Focus / Pomodoro Modal
+        if (showFocusTimerModal) {
+            FocusTimerStudioDialog(
                 vm = vm,
-                onDismiss = { showAnalyticsModal = false }
+                onDismiss = { showFocusTimerModal = false }
             )
         }
 
-        // Google Cloud Backup Modal
-        if (showCloudBackupModal) {
-            GoogleCloudBackupDialog(
+        // Studio Analytics & Insights Modal
+        if (showAnalyticsSheet) {
+            StudioAnalyticsModal(
                 vm = vm,
-                onDismiss = { showCloudBackupModal = false }
+                onDismiss = { showAnalyticsSheet = false }
             )
         }
 
-        // Create Habit Modal
-        if (showAddHabitDialog) {
-            CreateHabitDialog(
-                onDismiss = { showAddHabitDialog = false },
-                onSave = { title, emoji, cat, type, color, target, unit, step ->
-                    vm.addNewHabit(title, emoji, cat, type, color, target, unit, step)
-                    showAddHabitDialog = false
+        // Google Drive & Cloud Backup Vault Modal
+        if (showCloudVaultModal) {
+            GoogleDriveBackupVaultDialog(
+                vm = vm,
+                onDismiss = { showCloudVaultModal = false }
+            )
+        }
+
+        // Create New Habit Dialog
+        if (showCreateHabitModal) {
+            StudioCreateHabitDialog(
+                onDismiss = { showCreateHabitModal = false },
+                onSave = { title, emoji, cat, timeOfDay, cue, type, colorHex, target, unit, step ->
+                    vm.createHabit(context, title, emoji, cat, timeOfDay, cue, type, colorHex, target, unit, step)
+                    showCreateHabitModal = false
                 }
             )
         }
 
-        // FULL-SCREEN CELEBRATION PARTICLE OVERLAY
+        // FULL-SCREEN STUDIO CELEBRATION & XP OVERLAY
         AnimatedVisibility(
             visible = vm.showCelebration.value,
             enter = fadeIn(tween(180)),
             exit = fadeOut(tween(450))
         ) {
-            FullScreenCelebrationOverlay(
+            StudioFullScreenCelebrationOverlay(
                 title = vm.celebrationTitle.value,
                 subtitle = vm.celebrationSubtitle.value,
+                xpEarned = vm.celebrationXpEarned.intValue,
+                level = vm.userLevel,
+                rank = vm.userRankTitle,
                 onDismiss = { vm.showCelebration.value = false }
             )
         }
     }
 }
 
-// ============================================================================
-// TOP HEADER BAR & FLOATING BOTTOM NAVIGATION
-// ============================================================================
 @Composable
-fun TopHeaderBar(
+fun StudioGamifiedHeader(
     vm: HabitTrackerViewModel,
+    onOpenTimer: () -> Unit,
     onOpenAnalytics: () -> Unit,
     onOpenCloud: () -> Unit
 ) {
-    val todayFormatted = remember {
-        LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE, d MMM"))
-    }
+    val animatedXpProgress by animateFloatAsState(
+        targetValue = vm.xpProgressInLevel,
+        animationSpec = tween(700, easing = FastOutSlowInEasing),
+        label = "xpBar"
+    )
 
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 18.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+            .padding(horizontal = 16.dp, vertical = 10.dp)
     ) {
-        Column {
-            Text(
-                text = "Today, $todayFormatted",
-                color = AppColors.TextPrimary,
-                fontSize = 19.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Left: Level Badge + Rank & XP Progress
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
                 Box(
                     modifier = Modifier
-                        .size(7.dp)
-                        .clip(CircleShape)
-                        .background(AppColors.NeonGreen)
-                )
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    text = if (vm.connectedGoogleEmail.value != null)
-                        "Synced • ${vm.connectedGoogleEmail.value}"
-                    else "Local Mode • Tap cloud to connect",
-                    color = AppColors.TextSecondary,
-                    fontSize = 11.sp
-                )
-            }
-        }
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(
+                            Brush.linearGradient(
+                                listOf(AppColors.MintGlow, AppColors.CyberCyan)
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Lv.${vm.userLevel}",
+                        color = Color.Black,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 13.sp
+                    )
+                }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            // Analytics Icon Button (Green Sparkline Icon from Screenshots)
-            IconButton(
-                onClick = onOpenAnalytics,
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(AppColors.BgCardElevated)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Timeline,
-                    contentDescription = "Analytics",
-                    tint = AppColors.NeonGreen
-                )
+                Spacer(Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = vm.userRankTitle,
+                            color = AppColors.TextPrimary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                        Surface(
+                            color = AppColors.SolarGold.copy(alpha = 0.16f),
+                            shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(1.dp, AppColors.SolarGold.copy(alpha = 0.4f))
+                        ) {
+                            Text(
+                                text = "🛡️ ${vm.streakShields.intValue}",
+                                color = AppColors.SolarGold,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(5.dp))
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        LinearProgressIndicator(
+                            progress = { animatedXpProgress },
+                            color = AppColors.MintGlow,
+                            trackColor = AppColors.BgCardElevated,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "${vm.userXp.intValue} XP",
+                            color = AppColors.MintGlow,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
 
-            // Google Cloud Sync Button
-            IconButton(
-                onClick = onOpenCloud,
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(AppColors.BgCardElevated)
-            ) {
-                Icon(
-                    imageVector = if (vm.connectedGoogleEmail.value != null)
-                        Icons.Default.CloudDone else Icons.Default.CloudOff,
-                    contentDescription = "Google Cloud Backup",
-                    tint = if (vm.connectedGoogleEmail.value != null)
-                        AppColors.MintGreen else AppColors.TextSecondary
-                )
-            }
+            Spacer(Modifier.width(10.dp))
 
-            // Grid vs Weekly View Toggle
-            IconButton(
-                onClick = {
-                    vm.habitViewMode.value =
-                        if (vm.habitViewMode.value == HabitViewMode.GRID_VIEW)
-                            HabitViewMode.WEEKLY_VIEW else HabitViewMode.GRID_VIEW
-                },
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(AppColors.BgCardElevated)
-            ) {
-                Icon(
-                    imageVector = if (vm.habitViewMode.value == HabitViewMode.GRID_VIEW)
-                        Icons.Default.ViewWeek else Icons.Default.GridOn,
-                    contentDescription = "Toggle Grid/Weekly",
-                    tint = AppColors.LavenderPurple
+            // Right Action Buttons: Focus Timer, Analytics, Google Cloud Backup
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                HeaderActionButton(
+                    icon = Icons.Default.Timer,
+                    tint = AppColors.CyberCyan,
+                    onClick = onOpenTimer
+                )
+                HeaderActionButton(
+                    icon = Icons.Default.Insights,
+                    tint = AppColors.MintGlow,
+                    onClick = onOpenAnalytics
+                )
+                HeaderActionButton(
+                    icon = if (vm.connectedGoogleEmail.value != null) Icons.Default.CloudDone else Icons.Default.CloudUpload,
+                    tint = if (vm.connectedGoogleEmail.value != null) AppColors.MintGlow else AppColors.ElectricViolet,
+                    onClick = onOpenCloud
                 )
             }
         }
@@ -279,63 +354,139 @@ fun TopHeaderBar(
 }
 
 @Composable
-fun VibrantBottomBar(
-    currentTab: Int,
-    onSelectTab: (Int) -> Unit,
-    onQuickAddHabit: () -> Unit
+fun HeaderActionButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    tint: Color,
+    onClick: () -> Unit
 ) {
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(40.dp)
+            .clip(RoundedCornerShape(13.dp))
+            .background(AppColors.BgCard)
+            .border(1.dp, AppColors.BorderSubtle, RoundedCornerShape(13.dp))
+    ) {
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
+    }
+}
+
+@Composable
+fun ActiveFocusTimerBanner(
+    vm: HabitTrackerViewModel,
+    onExpand: () -> Unit
+) {
+    val context = LocalContext.current
+    val mins = vm.focusRemainingSeconds.longValue / 60
+    val secs = vm.focusRemainingSeconds.longValue % 60
+    val timeFormatted = String.format(Locale.US, "%02d:%02d", mins, secs)
+
     Surface(
-        color = AppColors.BgCard,
-        tonalElevation = 12.dp,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        color = AppColors.CyberCyan.copy(alpha = 0.15f),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, AppColors.CyberCyan),
         modifier = Modifier
             .fillMaxWidth()
-            .border(
-                width = 1.dp,
-                color = AppColors.BorderDark,
-                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
-            )
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .clickable { onExpand() }
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Bolt, null, tint = AppColors.CyberCyan)
+                Spacer(Modifier.width(8.dp))
+                Column {
+                    Text(
+                        text = vm.activeFocusTitle.value,
+                        color = AppColors.TextPrimary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                    Text(
+                        text = "Deep Focus Session Active • Tap to expand",
+                        color = AppColors.TextSecondary,
+                        fontSize = 11.sp
+                    )
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = timeFormatted,
+                    color = AppColors.CyberCyan,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 16.sp
+                )
+                Spacer(Modifier.width(8.dp))
+                IconButton(
+                    onClick = { vm.togglePauseFocusTimer(context) },
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        if (vm.isFocusTimerRunning.value) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        tint = AppColors.TextPrimary
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun StudioBottomDock(
+    currentTab: Int,
+    onSelectTab: (Int) -> Unit,
+    onQuickAction: () -> Unit
+) {
+    Surface(
+        color = AppColors.BgSurface.copy(alpha = 0.96f),
+        shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp),
+        border = BorderStroke(1.dp, AppColors.BorderSubtle),
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.SpaceAround,
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            val tabs = listOf(
-                Triple(0, "Habits", Icons.Default.GridView),
-                Triple(1, "To-Do", Icons.Default.CheckCircleOutline),
+            val items = listOf(
+                Triple(0, "Habits", Icons.Default.AutoAwesomeMosaic),
+                Triple(1, "Tasks", Icons.Default.Checklist),
                 Triple(2, "Journal", Icons.Default.AutoStories),
-                Triple(3, "Notebook", Icons.Default.MenuBook)
+                Triple(3, "Vault", Icons.Default.Psychology)
             )
 
-            tabs.forEach { (index, label, icon) ->
+            items.forEach { (index, title, icon) ->
                 val selected = currentTab == index
-                val bg by animateColorAsState(
-                    if (selected) AppColors.NeonGreen.copy(alpha = 0.16f) else Color.Transparent,
-                    label = "tabBg"
+                val pillBg by animateColorAsState(
+                    if (selected) AppColors.MintGlow.copy(alpha = 0.16f) else Color.Transparent,
+                    label = "navBg"
                 )
-                val contentColor by animateColorAsState(
-                    if (selected) AppColors.NeonGreen else AppColors.TextSecondary,
-                    label = "tabColor"
+                val tint by animateColorAsState(
+                    if (selected) AppColors.MintGlow else AppColors.TextSecondary,
+                    label = "navTint"
                 )
 
                 Row(
                     modifier = Modifier
                         .clip(RoundedCornerShape(16.dp))
-                        .background(bg)
+                        .background(pillBg)
                         .clickable { onSelectTab(index) }
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                        .padding(horizontal = 14.dp, vertical = 9.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(icon, contentDescription = label, tint = contentColor, modifier = Modifier.size(20.dp))
+                    Icon(icon, contentDescription = title, tint = tint, modifier = Modifier.size(20.dp))
                     AnimatedVisibility(visible = selected) {
                         Row {
                             Spacer(Modifier.width(6.dp))
                             Text(
-                                text = label,
-                                color = contentColor,
+                                text = title,
+                                color = tint,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp
                             )
@@ -344,20 +495,23 @@ fun VibrantBottomBar(
                 }
             }
 
-            // Neon Green Floating Action (+) Button
+            // Studio Gradient Quick-Create Button
             Box(
                 modifier = Modifier
-                    .size(42.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(AppColors.NeonGreen)
-                    .clickable { onQuickAddHabit() },
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(15.dp))
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(AppColors.MintGlow, AppColors.CyberCyan)
+                        )
+                    )
+                    .clickable { onQuickAction() },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Add Habit",
-                    tint = Color.Black,
-                    modifier = Modifier.size(24.dp)
+                    imageVector = if (currentTab == 0) Icons.Default.Add else Icons.Default.Timer,
+                    contentDescription = "Quick Action",
+                    tint = Color.Black
                 )
             }
         }
@@ -365,21 +519,31 @@ fun VibrantBottomBar(
 }
 
 // ============================================================================
-// SECTION 1: HABIT TRACKER SCREEN (Grids, Weekly View, Rings, & Measurements)
+// SECTION 1: STUDIO HABIT TRACKER (Interactive Calendar, Time-of-Day, 3 Views)
 // ============================================================================
 @Composable
-fun HabitTrackerScreen(
+fun StudioHabitTrackerSection(
     vm: HabitTrackerViewModel,
-    onAddHabitClick: () -> Unit,
+    onNewHabit: () -> Unit,
+    onLaunchFocusTimer: (Habit) -> Unit,
     onOpenAnalytics: () -> Unit
 ) {
     val context = LocalContext.current
-    val categories = listOf("All", "Fitness", "Health", "Morning", "Social", "Work")
-    var habitForCustomMeasurement by remember { mutableStateOf<Habit?>(null) }
+    var habitToLogCustomValue by remember { mutableStateOf<Habit?>(null) }
 
-    val filteredHabits = remember(vm.habits.toList(), vm.selectedCategory.value) {
-        if (vm.selectedCategory.value == "All") vm.habits
-        else vm.habits.filter { it.category.equals(vm.selectedCategory.value, ignoreCase = true) }
+    val filteredHabits = remember(
+        vm.habits.toList(),
+        vm.selectedTimeOfDay.value,
+        vm.selectedCategory.value
+    ) {
+        vm.habits.filter { h ->
+            val matchesTime = vm.selectedTimeOfDay.value == TimeOfDay.ALL ||
+                    h.timeOfDay == vm.selectedTimeOfDay.value ||
+                    h.timeOfDay == TimeOfDay.ALL
+            val matchesCat = vm.selectedCategory.value == "All" ||
+                    h.category.equals(vm.selectedCategory.value, ignoreCase = true)
+            matchesTime && matchesCat
+        }
     }
 
     LazyColumn(
@@ -387,129 +551,230 @@ fun HabitTrackerScreen(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // 1. 7-Day Glowing Top Progress Rings (Matches Image 4 & 5)
+        // 1. Interactive 7-Day Score Rings Strip (Tap any day to log/inspect)
         item {
-            WeeklyDailyCompletionRingsRow(habits = vm.habits)
+            InteractiveSevenDayCalendarStrip(
+                habits = vm.habits,
+                selectedDate = vm.selectedDate.value,
+                onSelectDate = { vm.selectedDate.value = it }
+            )
         }
 
-        // 2. Category Chips + View Mode Pill
+        // 2. Time-of-Day Routine Filter + View Mode Switcher
         item {
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                items(categories) { category ->
-                    val isSelected = vm.selectedCategory.value == category
-                    Surface(
-                        color = if (isSelected) AppColors.NeonGreenGlow.copy(alpha = 0.55f) else AppColors.BgCard,
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(
-                            1.dp,
-                            if (isSelected) AppColors.NeonGreen else AppColors.BorderDark
-                        ),
-                        modifier = Modifier.clickable { vm.selectedCategory.value = category }
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                LazyRow(
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(TimeOfDay.entries) { tod ->
+                        val active = vm.selectedTimeOfDay.value == tod
+                        Surface(
+                            color = if (active) AppColors.MintGlow.copy(alpha = 0.18f) else AppColors.BgCard,
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(
+                                1.dp,
+                                if (active) AppColors.MintGlow else AppColors.BorderSubtle
+                            ),
+                            modifier = Modifier.clickable { vm.selectedTimeOfDay.value = tod }
                         ) {
                             Text(
-                                text = category,
-                                color = if (isSelected) AppColors.NeonGreen else AppColors.TextSecondary,
-                                fontSize = 13.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                text = "${tod.icon} ${tod.label}",
+                                color = if (active) AppColors.MintGlow else AppColors.TextSecondary,
+                                fontSize = 12.sp,
+                                fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+                                modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp)
                             )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.width(8.dp))
+
+                // Cycle between Studio Cards -> 16-Week Heatmap -> Compact Weekly
+                IconButton(
+                    onClick = {
+                        vm.habitViewMode.value = when (vm.habitViewMode.value) {
+                            HabitViewMode.STUDIO_CARDS -> HabitViewMode.HEATMAP_GRID
+                            HabitViewMode.HEATMAP_GRID -> HabitViewMode.COMPACT_WEEKLY
+                            HabitViewMode.COMPACT_WEEKLY -> HabitViewMode.STUDIO_CARDS
+                        }
+                    },
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(AppColors.BgCardElevated)
+                ) {
+                    Icon(
+                        imageVector = when (vm.habitViewMode.value) {
+                            HabitViewMode.STUDIO_CARDS -> Icons.Default.ViewAgenda
+                            HabitViewMode.HEATMAP_GRID -> Icons.Default.GridOn
+                            HabitViewMode.COMPACT_WEEKLY -> Icons.Default.ViewWeek
+                        },
+                        contentDescription = "Switch View",
+                        tint = AppColors.ElectricViolet,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        }
+
+        // Empty State if user cleared all habits
+        if (filteredHabits.isEmpty()) {
+            item {
+                Surface(
+                    color = AppColors.BgCard,
+                    shape = RoundedCornerShape(22.dp),
+                    border = BorderStroke(1.dp, AppColors.BorderSubtle),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(28.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("✨", fontSize = 40.sp)
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Build Your Keystone Routine",
+                            color = AppColors.TextPrimary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 17.sp
+                        )
+                        Text(
+                            "Create checklists, quantifiable measurements, focus timers, or abstinence shields.",
+                            color = AppColors.TextSecondary,
+                            fontSize = 13.sp
+                        )
+                        Spacer(Modifier.height(14.dp))
+                        Button(
+                            onClick = onNewHabit,
+                            colors = ButtonDefaults.buttonColors(containerColor = AppColors.MintGlow)
+                        ) {
+                            Text("Create First Habit", color = Color.Black, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
             }
         }
 
-        // 3. Habit Cards (Either 16-Week Contribution Grid or 7-Day Weekly Row)
+        // 3. Habit Cards List
         items(filteredHabits, key = { it.id }) { habit ->
-            HabitCardItem(
+            StudioHabitCard(
                 habit = habit,
+                selectedDate = vm.selectedDate.value,
                 viewMode = vm.habitViewMode.value,
-                onToggleToday = { vm.toggleOrIncrementHabit(context, habit, LocalDate.now()) },
-                onDecrementToday = {
-                    val current = habit.valueOn(LocalDate.now())
-                    vm.setHabitMeasurement(context, habit, (current - habit.stepSize).coerceAtLeast(0f))
+                onToggleOrStep = { vm.toggleOrStepHabit(context, habit, vm.selectedDate.value) },
+                onDecrement = {
+                    val cur = habit.valueOn(vm.selectedDate.value)
+                    vm.setHabitMeasurement(context, habit, (cur - habit.stepSize).coerceAtLeast(0f), vm.selectedDate.value)
                 },
-                onToggleDate = { date -> vm.toggleOrIncrementHabit(context, habit, date) },
-                onOpenCustomMeasurement = { habitForCustomMeasurement = habit },
-                onOpenAnalytics = onOpenAnalytics
+                onToggleAnyDate = { d -> vm.toggleOrStepHabit(context, habit, d) },
+                onOpenCustomValue = { habitToLogCustomValue = habit },
+                onLaunchFocus = { onLaunchFocusTimer(habit) },
+                onDelete = { vm.deleteHabit(context, habit.id) }
             )
         }
 
         item { Spacer(Modifier.height(28.dp)) }
     }
 
-    habitForCustomMeasurement?.let { habit ->
-        MeasurementInputDialog(
+    habitToLogCustomValue?.let { habit ->
+        CustomMeasurementDialog(
             habit = habit,
-            onDismiss = { habitForCustomMeasurement = null },
-            onConfirm = { newAmount ->
-                vm.setHabitMeasurement(context, habit, newAmount)
-                habitForCustomMeasurement = null
+            selectedDate = vm.selectedDate.value,
+            onDismiss = { habitToLogCustomValue = null },
+            onSave = { amount ->
+                vm.setHabitMeasurement(context, habit, amount, vm.selectedDate.value)
+                habitToLogCustomValue = null
             }
         )
     }
 }
 
 @Composable
-fun WeeklyDailyCompletionRingsRow(habits: List<Habit>) {
+fun InteractiveSevenDayCalendarStrip(
+    habits: List<Habit>,
+    selectedDate: LocalDate,
+    onSelectDate: (LocalDate) -> Unit
+) {
     val today = LocalDate.now()
     val days = (6 downTo 0).map { today.minusDays(it.toLong()) }
-    val totalHabits = habits.size.coerceAtLeast(1)
+    val total = habits.size.coerceAtLeast(1)
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+    Surface(
+        color = AppColors.BgCard,
+        shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(1.dp, AppColors.BorderSubtle),
+        modifier = Modifier.fillMaxWidth()
     ) {
-        days.forEach { date ->
-            val isToday = date == today
-            val completedCount = habits.count { it.isCompletedOn(date) }
-            val progress by animateFloatAsState(
-                targetValue = (completedCount.toFloat() / totalHabits.toFloat()).coerceIn(0f, 1f),
-                animationSpec = tween(600),
-                label = "ringProg"
-            )
-
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = if (isToday) "Today" else date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.ENGLISH),
-                    color = if (isToday) AppColors.NeonGreen else AppColors.TextSecondary,
-                    fontSize = 11.sp,
-                    fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            days.forEach { date ->
+                val isSelected = date == selectedDate
+                val isToday = date == today
+                val doneCount = habits.count { it.isCompletedOn(date) }
+                val progress by animateFloatAsState(
+                    targetValue = (doneCount.toFloat() / total.toFloat()).coerceIn(0f, 1f),
+                    animationSpec = tween(500),
+                    label = "dayRing"
                 )
-                Spacer(Modifier.height(6.dp))
-                Box(
-                    modifier = Modifier.size(44.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Canvas(modifier = Modifier.fillMaxSize()) {
-                        val strokeWidth = 3.5.dp.toPx()
-                        // Dark Track Rounded Rect
-                        drawRoundRect(
-                            color = AppColors.BorderDark,
-                            cornerRadius = CornerRadius(13.dp.toPx(), 13.dp.toPx()),
-                            style = Stroke(width = strokeWidth)
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(
+                            if (isSelected) AppColors.MintGlow.copy(alpha = 0.14f)
+                            else Color.Transparent
                         )
-                        // Neon Progress Arc/Border
-                        drawArc(
-                            color = AppColors.NeonGreen,
-                            startAngle = -90f,
-                            sweepAngle = 360f * progress,
-                            useCenter = false,
-                            style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                        .clickable { onSelectDate(date) }
+                        .padding(horizontal = 6.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = if (isToday) "TODAY" else date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.ENGLISH).uppercase(),
+                        color = if (isSelected) AppColors.MintGlow else AppColors.TextSecondary,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Box(
+                        modifier = Modifier.size(40.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            val stroke = 3.5.dp.toPx()
+                            drawCircle(
+                                color = AppColors.BorderSubtle,
+                                style = Stroke(width = stroke)
+                            )
+                            drawArc(
+                                color = if (progress >= 1f) AppColors.MintGlow else AppColors.CyberCyan,
+                                startAngle = -90f,
+                                sweepAngle = 360f * progress,
+                                useCenter = false,
+                                style = Stroke(width = stroke, cap = StrokeCap.Round)
+                            )
+                        }
+                        Text(
+                            text = "${date.dayOfMonth}",
+                            color = AppColors.TextPrimary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
                         )
                     }
+                    Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "$completedCount/${habits.size}",
-                        color = AppColors.TextPrimary,
-                        fontSize = 11.sp,
+                        text = "$doneCount/${habits.size}",
+                        color = if (doneCount == habits.size && habits.isNotEmpty()) AppColors.MintGlow else AppColors.TextMuted,
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
@@ -519,34 +784,40 @@ fun WeeklyDailyCompletionRingsRow(habits: List<Habit>) {
 }
 
 @Composable
-fun HabitCardItem(
+fun StudioHabitCard(
     habit: Habit,
+    selectedDate: LocalDate,
     viewMode: HabitViewMode,
-    onToggleToday: () -> Unit,
-    onDecrementToday: () -> Unit,
-    onToggleDate: (LocalDate) -> Unit,
-    onOpenCustomMeasurement: () -> Unit,
-    onOpenAnalytics: () -> Unit
+    onToggleOrStep: () -> Unit,
+    onDecrement: () -> Unit,
+    onToggleAnyDate: (LocalDate) -> Unit,
+    onOpenCustomValue: () -> Unit,
+    onLaunchFocus: () -> Unit,
+    onDelete: () -> Unit
 ) {
-    val today = LocalDate.now()
-    val isDoneToday = habit.isCompletedOn(today)
-    val todayValue = habit.valueOn(today)
-    val streak = habit.currentStreak(today)
+    val isDone = habit.isCompletedOn(selectedDate)
+    val valueToday = habit.valueOn(selectedDate)
+    val progress = habit.progressOn(selectedDate)
+    val streak = habit.currentStreak()
+    val rate30d = habit.completionRate30Days()
 
-    val buttonScale by animateFloatAsState(
-        targetValue = if (isDoneToday) 1.06f else 1f,
+    val checkScale by animateFloatAsState(
+        targetValue = if (isDone) 1.07f else 1f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "btnScale"
+        label = "checkScale"
     )
 
     Surface(
         color = AppColors.BgCard,
-        shape = RoundedCornerShape(22.dp),
-        border = BorderStroke(1.dp, AppColors.BorderDark),
+        shape = RoundedCornerShape(24.dp),
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (isDone) habit.accentColor.copy(alpha = 0.65f) else AppColors.BorderSubtle
+        ),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Card Header
+            // Top Row: Icon, Title, Stacking Cue, and Action Controls
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -558,221 +829,189 @@ fun HabitCardItem(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(habit.accentColor.copy(alpha = 0.16f)),
+                            .size(48.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(habit.accentColor.copy(alpha = 0.16f))
+                            .border(1.dp, habit.accentColor.copy(alpha = 0.4f), RoundedCornerShape(16.dp)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(text = habit.emoji, fontSize = 22.sp)
+                        Text(text = habit.emoji, fontSize = 23.sp)
                     }
+
                     Spacer(Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = habit.title,
-                            color = AppColors.TextPrimary,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+
+                    Column(modifier = Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "🔥 Streak: $streak",
-                                color = AppColors.TextSecondary,
-                                fontSize = 12.sp
+                                text = habit.title,
+                                color = AppColors.TextPrimary,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
-                            if (habit.type == HabitType.MEASUREMENT) {
+                        }
+
+                        // Habit Stacking Cue Badge
+                        if (habit.habitStackingCue.isNotBlank()) {
+                            Text(
+                                text = "🔗 ${habit.habitStackingCue}",
+                                color = AppColors.TextSecondary,
+                                fontSize = 11.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
+                        Spacer(Modifier.height(3.dp))
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "🔥 $streak d",
+                                color = AppColors.SolarGold,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "• $rate30d% (30d)",
+                                color = AppColors.TextSecondary,
+                                fontSize = 11.sp
+                            )
+                            if (habit.type == HabitType.MEASUREMENT || habit.type == HabitType.FOCUS_TIMER) {
                                 Text(
-                                    text = "  •  ${todayValue.formatClean()}/${habit.targetValue.formatClean()} ${habit.unit}",
+                                    text = "• ${valueToday.cleanStr()}/${habit.targetValue.cleanStr()} ${habit.unit}",
                                     color = habit.accentColor,
                                     fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold
+                                    fontWeight = FontWeight.Bold
                                 )
                             }
                         }
                     }
                 }
 
-                // Right Action Controls (Checklist Checkmark, Measurement -/+, or Quit Shield)
+                // Right Action Controls
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    if (habit.type == HabitType.MEASUREMENT) {
-                        // Minus Step Button
+                    // Focus Timer Quick Launch
+                    if (habit.type == HabitType.FOCUS_TIMER || habit.type == HabitType.MEASUREMENT) {
                         IconButton(
-                            onClick = onDecrementToday,
+                            onClick = onLaunchFocus,
                             modifier = Modifier
-                                .size(36.dp)
-                                .clip(RoundedCornerShape(11.dp))
-                                .border(1.dp, AppColors.BorderDark, RoundedCornerShape(11.dp))
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(AppColors.BgCardElevated)
+                        ) {
+                            Icon(
+                                Icons.Default.Timer,
+                                contentDescription = "Start Focus Timer",
+                                tint = AppColors.CyberCyan,
+                                modifier = Modifier.size(17.dp)
+                            )
+                        }
+                    }
+
+                    if (habit.type == HabitType.MEASUREMENT || habit.type == HabitType.FOCUS_TIMER) {
+                        IconButton(
+                            onClick = onDecrement,
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(AppColors.BgCardElevated)
                         ) {
                             Icon(
                                 Icons.Default.Remove,
                                 contentDescription = "Decrease",
                                 tint = AppColors.TextSecondary,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(17.dp)
                             )
                         }
-                        // Custom number input button
                         IconButton(
-                            onClick = onOpenCustomMeasurement,
+                            onClick = onOpenCustomValue,
                             modifier = Modifier
-                                .size(36.dp)
-                                .clip(RoundedCornerShape(11.dp))
-                                .border(1.dp, AppColors.BorderDark, RoundedCornerShape(11.dp))
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(AppColors.BgCardElevated)
                         ) {
                             Icon(
                                 Icons.Default.Edit,
-                                contentDescription = "Set exact value",
+                                contentDescription = "Custom Value",
                                 tint = habit.accentColor,
                                 modifier = Modifier.size(16.dp)
                             )
                         }
                     }
 
-                    // Primary Action Button
+                    // Primary Complete / Increment Button
                     Box(
                         modifier = Modifier
-                            .scale(buttonScale)
+                            .scale(checkScale)
                             .size(44.dp)
                             .clip(RoundedCornerShape(14.dp))
                             .background(
-                                if (isDoneToday) habit.accentColor
-                                else habit.accentColor.copy(alpha = 0.18f)
+                                if (isDone) habit.accentColor
+                                else habit.accentColor.copy(alpha = 0.16f)
                             )
-                            .border(
-                                width = 1.5.dp,
-                                color = habit.accentColor,
-                                shape = RoundedCornerShape(14.dp)
-                            )
-                            .clickable { onToggleToday() },
+                            .border(1.5.dp, habit.accentColor, RoundedCornerShape(14.dp))
+                            .clickable { onToggleOrStep() },
                         contentAlignment = Alignment.Center
                     ) {
-                        when (habit.type) {
-                            HabitType.CHECKLIST -> Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = "Complete",
-                                tint = if (isDoneToday) Color.Black else habit.accentColor
-                            )
-                            HabitType.MEASUREMENT -> Icon(
-                                imageVector = if (isDoneToday) Icons.Default.Check else Icons.Default.Add,
-                                contentDescription = "Add measurement",
-                                tint = if (isDoneToday) Color.Black else habit.accentColor
-                            )
-                            HabitType.QUIT_SHIELD -> Icon(
-                                imageVector = Icons.Default.Shield,
-                                contentDescription = "Shield Active",
-                                tint = if (isDoneToday) Color.Black else habit.accentColor
-                            )
-                        }
+                        Icon(
+                            imageVector = when {
+                                habit.type == HabitType.QUIT_SHIELD -> Icons.Default.Shield
+                                isDone -> Icons.Default.Check
+                                habit.type == HabitType.CHECKLIST -> Icons.Default.Check
+                                else -> Icons.Default.Add
+                            },
+                            contentDescription = "Complete",
+                            tint = if (isDone) Color.Black else habit.accentColor
+                        )
                     }
 
                     IconButton(
-                        onClick = onOpenAnalytics,
-                        modifier = Modifier.size(28.dp)
+                        onClick = onDelete,
+                        modifier = Modifier.size(26.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.MoreVert,
-                            contentDescription = "Details",
-                            tint = AppColors.TextSecondary
+                            Icons.Default.DeleteOutline,
+                            contentDescription = "Delete",
+                            tint = AppColors.TextMuted,
+                            modifier = Modifier.size(17.dp)
                         )
                     }
                 }
             }
 
-            // Optional Measurement Progress Bar
-            if (habit.type == HabitType.MEASUREMENT) {
+            // Progress Bar for quantifiable / timer habits
+            if (habit.type == HabitType.MEASUREMENT || habit.type == HabitType.FOCUS_TIMER) {
                 Spacer(Modifier.height(10.dp))
-                val ratio = (todayValue / habit.targetValue).coerceIn(0f, 1f)
                 LinearProgressIndicator(
-                    progress = { ratio },
+                    progress = { progress },
                     color = habit.accentColor,
                     trackColor = AppColors.BgCardElevated,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(6.dp)
-                        .clip(RoundedCornerShape(3.dp))
+                        .clip(RoundedCornerShape(4.dp))
                 )
             }
 
             Spacer(Modifier.height(14.dp))
 
-            // Switch between 16-Week Heatmap Grid (Image 5) and 7-Day Weekly Row (Image 4)
-            if (viewMode == HabitViewMode.GRID_VIEW) {
-                ContributionHeatmapGrid(habit = habit)
-            } else {
-                WeeklyInteractiveHabitRow(habit = habit, onToggleDate = onToggleDate)
-            }
-        }
-    }
-}
-
-@Composable
-fun ContributionHeatmapGrid(habit: Habit) {
-    val today = LocalDate.now()
-    val weeks = 16
-    val totalDays = weeks * 7
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        // Day labels column (M, W, F, S)
-        Column(
-            modifier = Modifier.height(114.dp),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            listOf("M", "", "W", "", "F", "", "S").forEach { label ->
-                Text(
-                    text = label,
-                    color = AppColors.TextMuted,
-                    fontSize = 9.sp,
-                    modifier = Modifier.height(13.dp)
-                )
-            }
-        }
-
-        Spacer(Modifier.width(6.dp))
-
-        // 16 Columns x 7 Rows Grid
-        Row(
-            modifier = Modifier.weight(1f),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            for (w in (weeks - 1) downTo 0) {
-                Column(verticalArrangement = Arrangement.spacedBy(3.5.dp)) {
-                    for (d in 6 downTo 0) {
-                        val daysAgo = w * 7 + d
-                        val cellDate = today.minusDays(daysAgo.toLong())
-                        val rawVal = habit.valueOn(cellDate)
-                        val isDone = habit.isCompletedOn(cellDate)
-                        val isFailedShield = habit.type == HabitType.QUIT_SHIELD && rawVal < 0f
-
-                        val cellColor = when {
-                            isFailedShield -> AppColors.RoseRed.copy(alpha = 0.25f)
-                            isDone -> habit.accentColor
-                            rawVal > 0f -> habit.accentColor.copy(alpha = 0.45f)
-                            else -> AppColors.BgCardElevated
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .size(13.dp)
-                                .clip(RoundedCornerShape(3.5.dp))
-                                .background(cellColor)
-                                .then(
-                                    if (cellDate == today) Modifier.border(
-                                        1.dp,
-                                         Color.White,
-                                        RoundedCornerShape(3.5.dp)
-                                    ) else Modifier
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (isFailedShield) {
-                                Text("×", color = AppColors.RoseRed, fontSize = 8.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
+            // Dynamic Visualization Based on Selected Mode
+            when (viewMode) {
+                HabitViewMode.STUDIO_CARDS, HabitViewMode.COMPACT_WEEKLY -> {
+                    StudioSevenDayInteractiveStrip(
+                        habit = habit,
+                        onToggleDate = onToggleAnyDate
+                    )
+                }
+                HabitViewMode.HEATMAP_GRID -> {
+                    StudioSixteenWeekHeatmap(habit = habit)
                 }
             }
         }
@@ -780,7 +1019,7 @@ fun ContributionHeatmapGrid(habit: Habit) {
 }
 
 @Composable
-fun WeeklyInteractiveHabitRow(
+fun StudioSevenDayInteractiveStrip(
     habit: Habit,
     onToggleDate: (LocalDate) -> Unit
 ) {
@@ -791,743 +1030,109 @@ fun WeeklyInteractiveHabitRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        days.forEach { date ->
-            val isDone = habit.isCompletedOn(date)
-            val rawVal = habit.valueOn(date)
-            val isToday = date == today
+        days.forEach { d ->
+            val done = habit.isCompletedOn(d)
+            val raw = habit.valueOn(d)
+            val isToday = d == today
 
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.ENGLISH).take(2),
+                    text = d.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.ENGLISH).take(2),
                     color = if (isToday) AppColors.TextPrimary else AppColors.TextMuted,
-                    fontSize = 11.sp
+                    fontSize = 10.sp
                 )
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(4.dp))
                 Box(
                     modifier = Modifier
-                        .size(38.dp)
+                        .size(36.dp)
                         .clip(RoundedCornerShape(11.dp))
                         .background(
-                            if (isDone) habit.accentColor
-                            else AppColors.BgCardElevated
+                            when {
+                                done -> habit.accentColor
+                                raw > 0f -> habit.accentColor.copy(alpha = 0.35f)
+                                else -> AppColors.BgCardElevated
+                            }
                         )
                         .border(
                             width = if (isToday) 1.5.dp else 1.dp,
-                            color = if (isToday) Color.White else AppColors.BorderDark,
+                            color = if (isToday) Color.White else AppColors.BorderSubtle,
                             shape = RoundedCornerShape(11.dp)
                         )
-                        .clickable { onToggleDate(date) },
+                        .clickable { onToggleDate(d) },
                     contentAlignment = Alignment.Center
                 ) {
-                    when {
-                        habit.type == HabitType.QUIT_SHIELD && rawVal < 0f ->
-                            Icon(Icons.Default.Close, null, tint = AppColors.RoseRed, modifier = Modifier.size(16.dp))
-                        habit.type == HabitType.QUIT_SHIELD && isDone ->
-                            Icon(Icons.Default.Shield, null, tint = Color.Black, modifier = Modifier.size(16.dp))
-                        habit.type == HabitType.MEASUREMENT && rawVal > 0f ->
+                    if (habit.type == HabitType.MEASUREMENT || habit.type == HabitType.FOCUS_TIMER) {
+                        if (raw > 0f) {
                             Text(
-                                text = rawVal.formatClean(),
-                                color = if (isDone) Color.Black else habit.accentColor,
-                                fontSize = 11.sp,
+                                text = raw.cleanStr(),
+                                color = if (done) Color.Black else AppColors.TextPrimary,
+                                fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold
                             )
-                        isDone ->
-                            Icon(Icons.Default.Check, null, tint = Color.Black, modifier = Modifier.size(18.dp))
-                    }
-                }
-            }
-        }
-    }
-}
-
-// ============================================================================
-// ANALYTICS MODAL SHEET (Matches Reference Image 1: Streaks, Insights, & Time Trend)
-// ============================================================================
-@Composable
-fun AnalyticsFullModal(
-    vm: HabitTrackerViewModel,
-    onDismiss: () -> Unit
-) {
-    var selectedHabitIndex by remember { mutableIntStateOf(0) }
-    var selectedRangeDays by remember { mutableIntStateOf(30) } // 7, 30, 90
-
-    val habitsList = vm.habits
-    if (habitsList.isEmpty()) return
-    val currentHabit = habitsList[selectedHabitIndex.coerceIn(0, habitsList.lastIndex)]
-
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Surface(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(12.dp),
-            color = AppColors.BgDeep,
-            shape = RoundedCornerShape(28.dp),
-            border = BorderStroke(1.dp, AppColors.BorderDark)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(20.dp)
-            ) {
-                // Header
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Spacer(Modifier.width(28.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Timeline, null, tint = AppColors.NeonGreen)
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = "Analytics",
-                            color = AppColors.TextPrimary,
-                            fontSize = 19.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", tint = AppColors.TextSecondary)
-                    }
-                }
-
-                Spacer(Modifier.height(12.dp))
-
-                // Habit Carousel Selector (< 💻 Side Project >)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(
-                        onClick = {
-                            selectedHabitIndex =
-                                if (selectedHabitIndex - 1 < 0) habitsList.lastIndex else selectedHabitIndex - 1
                         }
-                    ) {
-                        Icon(Icons.Default.ChevronLeft, null, tint = AppColors.TextPrimary)
-                    }
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(currentHabit.emoji, fontSize = 20.sp)
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = currentHabit.title,
-                            color = AppColors.TextPrimary,
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    IconButton(
-                        onClick = {
-                            selectedHabitIndex = (selectedHabitIndex + 1) % habitsList.size
-                        }
-                    ) {
-                        Icon(Icons.Default.ChevronRight, null, tint = AppColors.TextPrimary)
-                    }
-                }
-
-                // Pager Dots
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "${selectedHabitIndex + 1} of ${habitsList.size}   ",
-                        color = AppColors.TextMuted,
-                        fontSize = 11.sp
-                    )
-                    habitsList.indices.forEach { idx ->
-                        Box(
-                            modifier = Modifier
-                                .padding(horizontal = 3.dp)
-                                .height(6.dp)
-                                .width(if (idx == selectedHabitIndex) 18.dp else 6.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (idx == selectedHabitIndex) AppColors.NeonGreen else AppColors.BorderDark
-                                )
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(20.dp))
-
-                // 3 Stat Cards Row (Current Streak, Best Streak, Total Logged)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    AnalyticsStatCard(
-                        modifier = Modifier.weight(1f),
-                        icon = "🔥",
-                        value = "${currentHabit.currentStreak()}",
-                        label = "current streak",
-                        footer = "Personal best!",
-                        accent = AppColors.CoralOrange
-                    )
-                    AnalyticsStatCard(
-                        modifier = Modifier.weight(1f),
-                        icon = "🏆",
-                        value = "${currentHabit.bestStreak()}",
-                        label = "best streak",
-                        footer = "All-time high",
-                        accent = AppColors.AmberGold
-                    )
-                    AnalyticsStatCard(
-                        modifier = Modifier.weight(1f),
-                        icon = "⏱️",
-                        value = currentHabit.totalLoggedValue().formatClean(),
-                        label = "total ${currentHabit.unit}",
-                        footer = "Incredible!",
-                        accent = AppColors.NeonGreen
-                    )
-                }
-
-                Spacer(Modifier.height(18.dp))
-
-                // INSIGHTS Card (Matches Image 1)
-                Surface(
-                    color = AppColors.BgCard,
-                    shape = RoundedCornerShape(20.dp),
-                    border = BorderStroke(1.dp, AppColors. NeonGreenGlow),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("💡", fontSize = 16.sp)
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                text = "INSIGHTS",
-                                color = AppColors.TextPrimary,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.sp
-                            )
-                        }
-                        HorizontalDivider(color = AppColors.BorderDark)
-                        InsightRowItem(
-                            emoji = "🔥",
-                            bg = AppColors.CoralOrange.copy(alpha = 0.16f),
-                            title = "On fire! Personal best streak",
-                            subtitle = "You're at a ${currentHabit.currentStreak()}-day streak. Keep it going!"
-                        )
-                        InsightRowItem(
-                            emoji = "📅",
-                            bg = AppColors.NeonGreen.copy(alpha = 0.16f),
-                            title = "Thursdays are your power day",
-                            subtitle = "88% completion rate on Thursdays."
-                        )
-                        InsightRowItem(
-                            emoji = "👍",
-                            bg = AppColors.PeriwinkleBlue.copy(alpha = 0.16f),
-                            title = "Strong consistency",
-                            subtitle = "76% 30-day completion rate. Keep pushing!"
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(18.dp))
-
-                // TIME TREND Line Graph Card (Matches Image 1)
-                Surface(
-                    color = AppColors.BgCard,
-                    shape = RoundedCornerShape(20.dp),
-                    border = BorderStroke(1.dp, AppColors.BorderDark),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        Icons.Default.ShowChart,
-                                        null,
-                                        tint = AppColors.NeonGreen,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(
-                                        text = "TIME TREND",
-                                        color = AppColors.TextPrimary,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 13.sp
-                                    )
-                                }
-                                Text(
-                                    text = "${currentHabit.unit.replaceFirstChar { it.uppercase() }} logged per day over time",
-                                    color = AppColors.TextSecondary,
-                                    fontSize = 11.sp
-                                )
-                            }
-
-                            Row(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(AppColors.BgCardElevated)
-                                    .padding(2.dp)
-                            ) {
-                                listOf(7 to "7d", 30 to "30d", 90 to "90d").forEach { (days, label) ->
-                                    val selected = selectedRangeDays == days
-                                    Text(
-                                        text = label,
-                                        color = if (selected) AppColors.NeonGreen else AppColors.TextSecondary,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(
-                                                if (selected) AppColors.NeonGreenGlow.copy(alpha = 0.6f)
-                                                else Color.Transparent
-                                            )
-                                            .clickable { selectedRangeDays = days }
-                                            .padding(horizontal = 10.dp, vertical = 5.dp)
-                                    )
-                                }
-                            }
-                        }
-
-                        Spacer(Modifier.height(18.dp))
-
-                        val today = LocalDate.now()
-                        val points = (selectedRangeDays - 1 downTo 0).map { offset ->
-                            currentHabit.valueOn(today.minusDays(offset.toLong())).coerceAtLeast(0f)
-                        }
-
-                        NeonAreaLineChart(
-                            points = points,
-                            lineColor = AppColors.NeonGreen,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(170.dp)
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun AnalyticsStatCard(
-    modifier: Modifier = Modifier,
-    icon: String,
-    value: String,
-    label: String,
-    footer: String,
-    accent: Color
-) {
-    Surface(
-        modifier = modifier,
-        color = AppColors.BgCard,
-        shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(1.dp, accent.copy(alpha = 0.35f))
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Text(text = icon, fontSize = 18.sp)
-            Spacer(Modifier.height(10.dp))
-            Text(
-                text = value,
-                color = AppColors.TextPrimary,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.ExtraBold
-            )
-            Text(text = label, color = AppColors.TextSecondary, fontSize = 11.sp)
-            Spacer(Modifier.height(6.dp))
-            Text(text = footer, color = accent, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
-        }
-    }
-}
-
-@Composable
-fun InsightRowItem(emoji: String, bg: Color, title: String, subtitle: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            modifier = Modifier
-                .size(38.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(bg),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(emoji, fontSize = 18.sp)
-        }
-        Spacer(Modifier.width(12.dp))
-        Column {
-            Text(title, color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            Text(subtitle, color = AppColors.TextSecondary, fontSize = 12.sp)
-        }
-    }
-}
-
-@Composable
-fun NeonAreaLineChart(
-    points: List<Float>,
-    lineColor: Color,
-    modifier: Modifier = Modifier
-) {
-    val maxVal = (points.maxOrNull() ?: 1f).coerceAtLeast(1f) * 1.2f
-
-    Canvas(modifier = modifier) {
-        if (points.size < 2) return@Canvas
-        val w = size.width
-        val h = size.height
-        val stepX = w / (points.size - 1)
-
-        // Subtle horizontal grid lines
-        for (i in 0..4) {
-            val y = h * (i / 4f)
-            drawLine(
-                color = AppColors.BorderDark.copy(alpha = 0.6f),
-                start = Offset(0f, y),
-                end = Offset(w, y),
-                strokeWidth = 1.dp.toPx()
-            )
-        }
-
-        val strokePath = Path()
-        val fillPath = Path()
-
-        points.forEachIndexed { i, v ->
-            val x = i * stepX
-            val y = h - (v / maxVal) * h
-            if (i == 0) {
-                strokePath.moveTo(x, y)
-                fillPath.moveTo(x, h)
-                fillPath.lineTo(x, y)
-            } else {
-                val prevX = (i - 1) * stepX
-                val prevY = h - (points[i - 1] / maxVal) * h
-                val ctrlX = (prevX + x) / 2f
-                strokePath.cubicTo(ctrlX, prevY, ctrlX, y, x, y)
-                fillPath.cubicTo(ctrlX, prevY, ctrlX, y, x, y)
-            }
-        }
-
-        fillPath.lineTo(w, h)
-        fillPath.close()
-
-        drawPath(
-            path = fillPath,
-            brush = Brush.verticalGradient(
-                colors = listOf(lineColor.copy(alpha = 0.35f), Color.Transparent)
-            )
-        )
-
-        drawPath(
-            path = strokePath,
-            color = lineColor,
-            style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
-        )
-    }
-}
-
-// ============================================================================
-// SECTION 2: TIMELINE TO-DO LIST SCREEN (Matches Reference Image 2)
-// ============================================================================
-@Composable
-fun TodoTimelineScreen(vm: HabitTrackerViewModel) {
-    val context = LocalContext.current
-    var selectedSubTab by remember { mutableIntStateOf(0) } // 0 = Timeline, 1 = All Tasks
-    var showAddTaskDialog by remember { mutableStateOf(false) }
-
-    val todayStr = LocalDate.now().toString()
-    val yesterdayStr = LocalDate.now().minusDays(1).toString()
-
-    Column(modifier = Modifier.fillMaxSize()) {
-        // Timeline | All Tasks Top Sub-Tab Bar
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            listOf("Timeline", "All Tasks").forEachIndexed { idx, title ->
-                val active = selectedSubTab == idx
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { selectedSubTab = idx }
-                        .padding(vertical = 8.dp)
-                ) {
-                    Text(
-                        text = title,
-                        color = if (active) AppColors.NeonGreen else AppColors.TextSecondary,
-                        fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
-                        fontSize = 14.sp
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    Box(
-                        modifier = Modifier
-                            .height(2.5.dp)
-                            .width(72.dp)
-                            .background(if (active) AppColors.NeonGreen else Color.Transparent)
-                    )
-                }
-            }
-        }
-
-        HorizontalDivider(color = AppColors.BorderDark)
-
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(18.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
-        ) {
-            val groupedByDate = if (selectedSubTab == 0) {
-                listOf(
-                    "TODAY" to vm.todos.filter { it.date == todayStr },
-                    "YESTERDAY" to vm.todos.filter { it.date == yesterdayStr }
-                )
-            } else {
-                listOf("ALL TASKS" to vm.todos.toList())
-            }
-
-            items(groupedByDate) { (dayLabel, dayTasks) ->
-                TimelineDaySection(
-                    dayLabel = dayLabel,
-                    tasks = dayTasks,
-                    onToggleTask = { vm.toggleTodo(context, it) },
-                    onAddTaskClick = { showAddTaskDialog = true }
-                )
-            }
-        }
-    }
-
-    if (showAddTaskDialog) {
-        AddTodoTaskDialog(
-            onDismiss = { showAddTaskDialog = false },
-            onAdd = { title, cat, recurring ->
-                vm.addTodoTask(title = title, category = cat, isRecurring = recurring)
-                showAddTaskDialog = false
-            }
-        )
-    }
-}
-
-@Composable
-fun TimelineDaySection(
-    dayLabel: String,
-    tasks: List<TodoTask>,
-    onToggleTask: (TodoTask) -> Unit,
-    onAddTaskClick: () -> Unit
-) {
-    val completedCount = tasks.count { it.isCompleted }
-    val pendingTasks = tasks.filter { !it.isCompleted }
-    val completedTasks = tasks.filter { it.isCompleted }
-    val isToday = dayLabel == "TODAY"
-
-    Row(modifier = Modifier.fillMaxWidth()) {
-        // Left Timeline Node & Line
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(end = 14.dp, top = 4.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(16.dp)
-                    .clip(CircleShape)
-                    .background(if (isToday) AppColors.NeonGreen else Color.Transparent)
-                    .border(2.dp, AppColors.NeonGreen, CircleShape)
-            )
-            Box(
-                modifier = Modifier
-                    .width(2.dp)
-                    .height(220.dp)
-                    .background(AppColors.BorderDark)
-            )
-        }
-
-        // Right Content Column
-        Column(modifier = Modifier.weight(1f)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = if (isToday) LocalDate.now().format(DateTimeFormatter.ofPattern("MMM d"))
-                        else LocalDate.now().minusDays(1).format(DateTimeFormatter.ofPattern("MMM d")),
-                        color = if (isToday) AppColors.NeonGreen else AppColors.TextPrimary,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    if (isToday) {
-                        Surface(
-                            color = AppColors.NeonGreen,
-                            shape = RoundedCornerShape(6.dp)
-                        ) {
-                            Text(
-                                text = "TODAY",
-                                color = Color.Black,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
-                }
-
-                Text(
-                    text = "$completedCount/${tasks.size}",
-                    color = AppColors.TextSecondary,
-                    fontSize = 12.sp
-                )
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            if (pendingTasks.isEmpty() && tasks.isNotEmpty()) {
-                // "All done!" green banner from Image 2
-                Surface(
-                    color = AppColors.NeonGreenGlow.copy(alpha = 0.35f),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, AppColors.NeonGreen.copy(alpha = 0.4f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    } else if (done) {
                         Icon(
-                            Icons.Default.CheckCircle,
-                            null,
-                            tint = AppColors.NeonGreen,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = "All done! ",
-                            color = AppColors.NeonGreen,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
-                        )
-                        Text(
-                            text = "${tasks.size} tasks completed",
-                            color = AppColors.TextSecondary,
-                            fontSize = 13.sp
+                            Icons.Default.Check,
+                            contentDescription = null,
+                            tint = Color.Black,
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
-            } else {
-                // Group Pending by Category (Personal, Work, Health)
-                val byCategory = pendingTasks.groupBy { it.category }
-                byCategory.forEach { (category, catTasks) ->
-                    Text(
-                        text = "⌄  $category",
-                        color = AppColors.TextSecondary,
-                        fontSize = 12.sp,
-                        modifier = Modifier.padding(vertical = 6.dp)
-                    )
-                    catTasks.forEach { task ->
-                        TodoTaskRow(task = task, onToggle = { onToggleTask(task) })
-                    }
-                }
-            }
-
-            if (completedTasks.isNotEmpty()) {
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = "›  Completed  ${completedTasks.size}",
-                    color = AppColors.TextMuted,
-                    fontSize = 12.sp
-                )
-                completedTasks.forEach { task ->
-                    TodoTaskRow(task = task, onToggle = { onToggleTask(task) })
-                }
-            }
-
-            Spacer(Modifier.height(10.dp))
-
-            // + Add task button
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(10.dp))
-                    .clickable { onAddTaskClick() }
-                    .padding(vertical = 6.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(26.dp)
-                        .border(1.dp, AppColors.BorderDark, RoundedCornerShape(7.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Default.Add, null, tint = AppColors.TextSecondary, modifier = Modifier.size(16.dp))
-                }
-                Spacer(Modifier.width(10.dp))
-                Text("Add task", color = AppColors.TextSecondary, fontSize = 13.sp)
             }
         }
     }
 }
 
 @Composable
-fun TodoTaskRow(task: TodoTask, onToggle: () -> Unit) {
+fun StudioSixteenWeekHeatmap(habit: Habit) {
+    val today = LocalDate.now()
+    val weeks = 16
+
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .clickable { onToggle() }
-            .padding(vertical = 10.dp, horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-            Box(
-                modifier = Modifier
-                    .size(24.dp)
-                    .clip(CircleShape)
-                    .background(if (task.isCompleted) AppColors.NeonGreen else Color.Transparent)
-                    .border(
-                        width = 1.8.dp,
-                        color = if (task.isCompleted) AppColors.NeonGreen else AppColors.TextSecondary,
-                        shape = CircleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                if (task.isCompleted) {
-                    Icon(Icons.Default.Check, null, tint = Color.Black, modifier = Modifier.size(15.dp))
+        for (w in (weeks - 1) downTo 0) {
+            Column(verticalArrangement = Arrangement.spacedBy(3.5.dp)) {
+                for (d in 6 downTo 0) {
+                    val cellDate = today.minusDays((w * 7 + d).toLong())
+                    val isDone = habit.isCompletedOn(cellDate)
+                    val raw = habit.valueOn(cellDate)
+                    val cellColor = when {
+                        isDone -> habit.accentColor
+                        raw > 0f -> habit.accentColor.copy(alpha = 0.45f)
+                        else -> AppColors.BgCardElevated
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(13.dp)
+                            .clip(RoundedCornerShape(3.5.dp))
+                            .background(cellColor)
+                    )
                 }
             }
-            Spacer(Modifier.width(12.dp))
-            Text(
-                text = task.title,
-                color = if (task.isCompleted) AppColors.TextMuted else AppColors.TextPrimary,
-                fontSize = 15.sp,
-                textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None
-            )
-        }
-
-        if (task.isRecurring) {
-            Icon(
-                imageVector = Icons.Default.Repeat,
-                contentDescription = "Recurring",
-                tint = AppColors.TextMuted,
-                modifier = Modifier.size(16.dp)
-            )
         }
     }
 }
 
 // ============================================================================
-// SECTION 3: DAILY REFLECTION JOURNAL (Activities, Memory Photos, Mistakes & Actions)
+// SECTION 2: PRIORITY-MATRIX TO-DO LIST WITH SUBTASKS & FOCUS LAUNCHER
 // ============================================================================
 @Composable
-fun ReflectionJournalScreen(vm: HabitTrackerViewModel) {
-    var showCreateJournalModal by remember { mutableStateOf(false) }
+fun StudioTodoMatrixSection(
+    vm: HabitTrackerViewModel,
+    onLaunchTaskTimer: (TodoTask) -> Unit
+) {
+    val context = LocalContext.current
+    var selectedPriorityFilter by remember { mutableStateOf<TodoPriority?>(null) }
+    var showAddTaskModal by remember { mutableStateOf(false) }
+
+    val filteredTodos = remember(vm.todos.toList(), selectedPriorityFilter) {
+        val base = if (selectedPriorityFilter == null) vm.todos
+        else vm.todos.filter { it.priority == selectedPriorityFilter }
+        base.sortedWith(compareBy<TodoTask> { it.isCompleted }.thenBy { it.priority.ordinal })
+    }
 
     Column(
         modifier = Modifier
@@ -1543,99 +1148,327 @@ fun ReflectionJournalScreen(vm: HabitTrackerViewModel) {
         ) {
             Column {
                 Text(
-                    text = "Reflection & Memory Journal",
+                    text = "Execution & Priority Matrix",
                     color = AppColors.TextPrimary,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Daily Wins • Memory Photos • Mistakes • Corrective Actions",
+                    text = "${vm.todos.count { !it.isCompleted }} active missions • Tap timer to enter focus mode",
                     color = AppColors.TextSecondary,
                     fontSize = 12.sp
                 )
             }
             Button(
-                onClick = { showCreateJournalModal = true },
-                colors = ButtonDefaults.buttonColors(containerColor = AppColors.NeonGreen),
+                onClick = { showAddTaskModal = true },
+                colors = ButtonDefaults.buttonColors(containerColor = AppColors.MintGlow),
                 shape = RoundedCornerShape(14.dp)
             ) {
-                Icon(Icons.Default.EditNote, null, tint = Color.Black)
+                Icon(Icons.Default.AddTask, null, tint = Color.Black)
                 Spacer(Modifier.width(6.dp))
-                Text("Write", color = Color.Black, fontWeight = FontWeight.Bold)
+                Text("New Task", color = Color.Black, fontWeight = FontWeight.Bold)
+            }
+        }
+
+        // Priority Filter Chips
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(vertical = 6.dp)
+        ) {
+            item {
+                FilterChip(
+                    selected = selectedPriorityFilter == null,
+                    onClick = { selectedPriorityFilter = null },
+                    label = { Text("All Priorities") }
+                )
+            }
+            items(TodoPriority.entries) { prio ->
+                FilterChip(
+                    selected = selectedPriorityFilter == prio,
+                    onClick = { selectedPriorityFilter = prio },
+                    label = { Text(prio.label) }
+                )
             }
         }
 
         LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(vertical = 12.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(vertical = 10.dp)
         ) {
-            items(vm.journals, key = { it.id }) { entry ->
-                JournalEntryCard(entry = entry)
+            items(filteredTodos, key = { it.id }) { task ->
+                StudioTodoCard(
+                    task = task,
+                    onToggleMain = { vm.toggleTodo(context, task) },
+                    onToggleSubTask = { subId -> vm.toggleSubTask(context, task, subId) },
+                    onStartFocus = { onLaunchTaskTimer(task) },
+                    onDelete = { vm.deleteTodoTask(context, task.id) }
+                )
             }
         }
     }
 
-    if (showCreateJournalModal) {
-        CreateJournalDialog(
-            onDismiss = { showCreateJournalModal = false },
-            onSave = { mood, activities, wrong, actions, photos, syncToTodo ->
-                vm.addJournalEntry(mood, activities, wrong, actions, photos, syncToTodo)
-                showCreateJournalModal = false
+    if (showAddTaskModal) {
+        StudioAddTodoDialog(
+            onDismiss = { showAddTaskModal = false },
+            onSave = { title, cat, prio, timeBlock, mins, subs, recurring ->
+                vm.addTodoTask(context, title, cat, prio, timeBlock, mins, subs, recurring)
+                showAddTaskModal = false
             }
         )
     }
 }
 
 @Composable
-fun JournalEntryCard(entry: JournalEntry) {
+fun StudioTodoCard(
+    task: TodoTask,
+    onToggleMain: () -> Unit,
+    onToggleSubTask: (String) -> Unit,
+    onStartFocus: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val prioColor = Color(task.priority.colorHex)
+
     Surface(
         color = AppColors.BgCard,
-        shape = RoundedCornerShape(22.dp),
-        border = BorderStroke(1.dp, AppColors.BorderDark),
+        shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(
+            1.dp,
+            if (task.isCompleted) AppColors.BorderSubtle else prioColor.copy(alpha = 0.45f)
+        ),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(26.dp)
+                            .clip(CircleShape)
+                            .background(if (task.isCompleted) AppColors.MintGlow else Color.Transparent)
+                            .border(2.dp, if (task.isCompleted) AppColors.MintGlow else prioColor, CircleShape)
+                            .clickable { onToggleMain() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (task.isCompleted) {
+                            Icon(Icons.Default.Check, null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                        }
+                    }
+
+                    Spacer(Modifier.width(12.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = task.title,
+                            color = if (task.isCompleted) AppColors.TextMuted else AppColors.TextPrimary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
+                            textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                color = prioColor.copy(alpha = 0.16f),
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Text(
+                                    text = task.priority.label,
+                                    color = prioColor,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                            Text(
+                                text = "📂 ${task.category} • ⏱️ ${task.estimatedMinutes}m",
+                                color = AppColors.TextSecondary,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onStartFocus, modifier = Modifier.size(34.dp)) {
+                        Icon(Icons.Default.PlayCircleOutline, "Focus", tint = AppColors.CyberCyan)
+                    }
+                    IconButton(onClick = onDelete, modifier = Modifier.size(30.dp)) {
+                        Icon(Icons.Default.Close, "Delete", tint = AppColors.TextMuted, modifier = Modifier.size(16.dp))
+                    }
+                }
+            }
+
+            // Nested Subtasks Checklist
+            if (task.subTasks.isNotEmpty()) {
+                Spacer(Modifier.height(10.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(AppColors.BgCardElevated)
+                        .padding(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    task.subTasks.forEach { sub ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onToggleSubTask(sub.id) }
+                        ) {
+                            Icon(
+                                imageVector = if (sub.isDone) Icons.Default.CheckBox else Icons.Default.CheckBoxOutlineBlank,
+                                contentDescription = null,
+                                tint = if (sub.isDone) AppColors.MintGlow else AppColors.TextSecondary,
+                                modifier = Modifier.size(17.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = sub.title,
+                                color = if (sub.isDone) AppColors.TextMuted else AppColors.TextPrimary,
+                                fontSize = 13.sp,
+                                textDecoration = if (sub.isDone) TextDecoration.LineThrough else TextDecoration.None
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ============================================================================
+// SECTION 3: MULTIMEDIA REFLECTION JOURNAL (Energy Slider, Photos, Mistakes & Actions)
+// ============================================================================
+@Composable
+fun StudioReflectionJournalSection(vm: HabitTrackerViewModel) {
+    val context = LocalContext.current
+    var showWriteJournalModal by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = "Daily Life & Memory Journal",
+                    color = AppColors.TextPrimary,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Photo Memories • Daily Wins • Mistakes Audit • Next Actions",
+                    color = AppColors.TextSecondary,
+                    fontSize = 12.sp
+                )
+            }
+            Button(
+                onClick = { showWriteJournalModal = true },
+                colors = ButtonDefaults.buttonColors(containerColor = AppColors.MintGlow),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Icon(Icons.Default.EditNote, null, tint = Color.Black)
+                Spacer(Modifier.width(6.dp))
+                Text("Log Day", color = Color.Black, fontWeight = FontWeight.Bold)
+            }
+        }
+
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(vertical = 10.dp)
+        ) {
+            items(vm.journals, key = { it.id }) { entry ->
+                StudioJournalEntryCard(
+                    entry = entry,
+                    onDelete = { vm.deleteJournalEntry(context, entry.id) }
+                )
+            }
+        }
+    }
+
+    if (showWriteJournalModal) {
+        StudioCreateJournalDialog(
+            onDismiss = { showWriteJournalModal = false },
+            onSave = { title, mood, energy, wins, story, mistakes, actions, photos, tags, pushToTodo ->
+                vm.addJournalEntry(
+                    context = context,
+                    title = title,
+                    moodEmoji = mood,
+                    energyScore = energy,
+                    wins = wins,
+                    story = story,
+                    mistakes = mistakes,
+                    actions = actions,
+                    photos = photos,
+                    tags = tags,
+                    pushActionsToTodo = pushToTodo
+                )
+                showWriteJournalModal = false
+            }
+        )
+    }
+}
+
+@Composable
+fun StudioJournalEntryCard(
+    entry: JournalEntry,
+    onDelete: () -> Unit
+) {
+    Surface(
+        color = AppColors.BgCard,
+        shape = RoundedCornerShape(24.dp),
+        border = BorderStroke(1.dp, AppColors.BorderSubtle),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(entry.moodEmoji, fontSize = 24.sp)
+                    Text(entry.moodEmoji, fontSize = 28.sp)
                     Spacer(Modifier.width(10.dp))
-                    Text(
-                        text = entry.date,
-                        color = AppColors.TextPrimary,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp
-                    )
+                    Column {
+                        Text(
+                            text = entry.title,
+                            color = AppColors.TextPrimary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 17.sp
+                        )
+                        Text(
+                            text = "${entry.date}  •  ⚡ Energy: ${entry.energyScore}/10",
+                            color = AppColors.MintGlow,
+                            fontSize = 12.sp
+                        )
+                    }
                 }
-                Surface(
-                    color = AppColors.BgCardElevated,
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text(
-                        text = "Daily Audit",
-                        color = AppColors.MintGreen,
-                        fontSize = 11.sp,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
+                IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
+                    Icon(Icons.Default.DeleteOutline, null, tint = AppColors.TextMuted, modifier = Modifier.size(18.dp))
                 }
             }
 
-            // 1. Daily Activities
-            Column {
-                Text(
-                    text = "📖 DAILY ACTIVITIES & MEMORIES",
-                    color = AppColors.LavenderPurple,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(text = entry.dailyActivities, color = AppColors.TextPrimary, fontSize = 14.sp)
-            }
-
-            // Uploaded Photos Gallery
+            // Memory Photos Carousel
             if (entry.photoUris.isNotEmpty()) {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(entry.photoUris) { uriStr ->
@@ -1644,64 +1477,66 @@ fun JournalEntryCard(entry: JournalEntry) {
                             contentDescription = "Memory Photo",
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
-                                .size(110.dp)
-                                .clip(RoundedCornerShape(14.dp))
-                                .border(1.dp, AppColors.BorderDark, RoundedCornerShape(14.dp))
+                                .size(135.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .border(1.dp, AppColors.BorderSubtle, RoundedCornerShape(16.dp))
                         )
                     }
                 }
             }
 
-            // 2. What I Did Wrong (Self-Correction Block)
-            if (entry.whatWentWrong.isNotBlank()) {
+            if (entry.gratitudeOrWins.isNotBlank()) {
                 Surface(
-                    color = AppColors.RoseRed.copy(alpha = 0.1f),
+                    color = AppColors.SolarGold.copy(alpha = 0.1f),
                     shape = RoundedCornerShape(14.dp),
-                    border = BorderStroke(1.dp, AppColors.RoseRed.copy(alpha = 0.35f)),
+                    border = BorderStroke(1.dp, AppColors.SolarGold.copy(alpha = 0.35f)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
-                        Text(
-                            text = "⚠️ WHAT I DID WRONG / FRICTION POINTS",
-                            color = AppColors.RoseRed,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Text("🏆 KEY WINS & GRATITUDE", color = AppColors.SolarGold, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
                         Spacer(Modifier.height(4.dp))
-                        Text(text = entry.whatWentWrong, color = AppColors.TextPrimary, fontSize = 13.sp)
+                        Text(entry.gratitudeOrWins, color = AppColors.TextPrimary, fontSize = 13.sp)
                     }
                 }
             }
 
-            // 3. Actions I Must Take
-            if (entry.actionsToTake.isNotEmpty()) {
+            if (entry.dailyStory.isNotBlank()) {
+                Column {
+                    Text("📖 DAILY ACTIVITIES & REFLECTION", color = AppColors.CyberCyan, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
+                    Spacer(Modifier.height(4.dp))
+                    Text(entry.dailyStory, color = AppColors.TextPrimary, fontSize = 14.sp, lineHeight = 20.sp)
+                }
+            }
+
+            if (entry.frictionOrMistakes.isNotBlank()) {
                 Surface(
-                    color = AppColors.NeonGreen.copy(alpha = 0.08f),
+                    color = AppColors.CrimsonRose.copy(alpha = 0.1f),
                     shape = RoundedCornerShape(14.dp),
-                    border = BorderStroke(1.dp, AppColors.NeonGreen.copy(alpha = 0.35f)),
+                    border = BorderStroke(1.dp, AppColors.CrimsonRose.copy(alpha = 0.35f)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
-                        Text(
-                            text = "🎯 ACTIONS I MUST TAKE TOMORROW",
-                            color = AppColors.NeonGreen,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(Modifier.height(6.dp))
-                        entry.actionsToTake.forEach { action ->
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(vertical = 2.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.ArrowRightAlt,
-                                    null,
-                                    tint = AppColors.NeonGreen,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(Modifier.width(6.dp))
-                                Text(text = action, color = AppColors.TextPrimary, fontSize = 13.sp)
+                        Text("⚠️ WHAT WENT WRONG / MISTAKES AUDIT", color = AppColors.CrimsonRose, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
+                        Spacer(Modifier.height(4.dp))
+                        Text(entry.frictionOrMistakes, color = AppColors.TextPrimary, fontSize = 13.sp)
+                    }
+                }
+            }
+
+            if (entry.actionItems.isNotEmpty()) {
+                Surface(
+                    color = AppColors.MintGlow.copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, AppColors.MintGlow.copy(alpha = 0.35f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text("🎯 CORRECTIVE ACTIONS TO TAKE", color = AppColors.MintGlow, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
+                        Spacer(Modifier.height(4.dp))
+                        entry.actionItems.forEach { act ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("→ ", color = AppColors.MintGlow, fontWeight = FontWeight.Bold)
+                                Text(act, color = AppColors.TextPrimary, fontSize = 13.sp)
                             }
                         }
                     }
@@ -1711,150 +1546,25 @@ fun JournalEntryCard(entry: JournalEntry) {
     }
 }
 
-@Composable
-fun CreateJournalDialog(
-    onDismiss: () -> Unit,
-    onSave: (String, String, String, List<String>, List<String>, Boolean) -> Unit
-) {
-    var mood by remember { mutableStateOf("🔥") }
-    var activities by remember { mutableStateOf("") }
-    var wentWrong by remember { mutableStateOf("") }
-    var actionsRaw by remember { mutableStateOf("") }
-    var pushActionsToTodo by remember { mutableStateOf(true) }
-    val selectedPhotos = remember { mutableStateListOf<String>() }
-
-    val photoPicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 5)
-    ) { uris ->
-        uris.forEach { selectedPhotos.add(it.toString()) }
-    }
-
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            color = AppColors.BgCard,
-            shape = RoundedCornerShape(24.dp),
-            border = BorderStroke(1.dp, AppColors.BorderDark)
-        ) {
-            Column(
-                modifier = Modifier
-                    .padding(20.dp)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                Text("New Daily Reflection", color = AppColors.TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-
-                // Mood selector
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    listOf("🔥", "🌟", "😊", "🧘", "⚡", "🌧️").forEach { emoji ->
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(if (mood == emoji) AppColors.NeonGreenGlow else AppColors.BgCardElevated)
-                                .border(
-                                    1.dp,
-                                    if (mood == emoji) AppColors.NeonGreen else Color.Transparent,
-                                    CircleShape
-                                )
-                                .clickable { mood = emoji },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(emoji, fontSize = 18.sp)
-                        }
-                    }
-                }
-
-                OutlinedTextField(
-                    value = activities,
-                    onValueChange = { activities = it },
-                    label = { Text("What did you do today?") },
-                    minLines = 3,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                // Photo Upload Button
-                OutlinedButton(
-                    onClick = {
-                        photoPicker.launch(
-                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                        )
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    border = BorderStroke(1.dp, AppColors.LavenderPurple)
-                ) {
-                    Icon(Icons.Default.AddPhotoAlternate, null, tint = AppColors.LavenderPurple)
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        "Attach Memory Photos (${selectedPhotos.size} selected)",
-                        color = AppColors.LavenderPurple
-                    )
-                }
-
-                OutlinedTextField(
-                    value = wentWrong,
-                    onValueChange = { wentWrong = it },
-                    label = { Text("What went wrong / Mistakes made?") },
-                    minLines = 2,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                OutlinedTextField(
-                    value = actionsRaw,
-                    onValueChange = { actionsRaw = it },
-                    label = { Text("Actions I must take (one per line)") },
-                    minLines = 2,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(
-                        checked = pushActionsToTodo,
-                        onCheckedChange = { pushActionsToTodo = it }
-                    )
-                    Text(
-                        "Automatically add these actions to my To-Do List",
-                        color = AppColors.TextSecondary,
-                        fontSize = 13.sp
-                    )
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(onClick = onDismiss) { Text("Cancel") }
-                    Spacer(Modifier.width(8.dp))
-                    Button(
-                        onClick = {
-                            if (activities.isNotBlank()) {
-                                val actions = actionsRaw.lines().map { it.trim() }.filter { it.isNotEmpty() }
-                                onSave(mood, activities, wentWrong, actions, selectedPhotos.toList(), pushActionsToTodo)
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = AppColors.NeonGreen)
-                    ) {
-                        Text("Save Reflection", color = Color.Black, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
-    }
-}
-
 // ============================================================================
-// SECTION 4: ADVANCED BOOK SUMMARY & NOTES NOTEBOOK
+// SECTION 4: SECOND-BRAIN NOTEBOOK & BOOK SUMMARY VAULT (With Flip Flashcards)
 // ============================================================================
 @Composable
-fun AdvancedNotebookScreen(vm: HabitTrackerViewModel) {
-    var selectedFilter by remember { mutableStateOf<NoteCategory?>(null) }
-    var showCreateNoteDialog by remember { mutableStateOf(false) }
+fun StudioSecondBrainNotebookSection(vm: HabitTrackerViewModel) {
+    val context = LocalContext.current
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedCat by remember { mutableStateOf<NoteCategory?>(null) }
+    var showCreateNoteModal by remember { mutableStateOf(false) }
 
-    val displayedNotes = remember(vm.notes.toList(), selectedFilter) {
-        if (selectedFilter == null) vm.notes
-        else vm.notes.filter { it.category == selectedFilter }
+    val displayedNotes = remember(vm.notes.toList(), searchQuery, selectedCat) {
+        vm.notes.filter { n ->
+            val matchesCat = selectedCat == null || n.category == selectedCat
+            val matchesSearch = searchQuery.isBlank() ||
+                    n.title.contains(searchQuery, ignoreCase = true) ||
+                    n.authorOrSubtitle.contains(searchQuery, ignoreCase = true) ||
+                    n.detailedNotes.contains(searchQuery, ignoreCase = true)
+            matchesCat && matchesSearch
+        }.sortedByDescending { it.isPinned }
     }
 
     Column(
@@ -1871,40 +1581,58 @@ fun AdvancedNotebookScreen(vm: HabitTrackerViewModel) {
         ) {
             Column {
                 Text(
-                    text = "Knowledge Vault & Book Notes",
+                    text = "Second-Brain & Book Vault",
                     color = AppColors.TextPrimary,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Book Summaries • Key Takeaways • Second Brain Notes",
+                    text = "Book Summaries • Active Recall Flashcards • Mental Models",
                     color = AppColors.TextSecondary,
                     fontSize = 12.sp
                 )
             }
             Button(
-                onClick = { showCreateNoteDialog = true },
-                colors = ButtonDefaults.buttonColors(containerColor = AppColors.LavenderPurple),
+                onClick = { showCreateNoteModal = true },
+                colors = ButtonDefaults.buttonColors(containerColor = AppColors.ElectricViolet),
                 shape = RoundedCornerShape(14.dp)
             ) {
-                Icon(Icons.Default.BookmarkAdd, null, tint = Color.Black)
+                Icon(Icons.Default.LibraryAdd, null, tint = Color.Black)
                 Spacer(Modifier.width(6.dp))
-                Text("New Note", color = Color.Black, fontWeight = FontWeight.Bold)
+                Text("Add Vault", color = Color.Black, fontWeight = FontWeight.Bold)
             }
         }
 
-        // Filter Pills
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 6.dp)) {
-            listOf(
-                null to "All Vault (${vm.notes.size})",
-                NoteCategory.BOOK_SUMMARY to "📚 Book Summaries",
-                NoteCategory.GENERAL_NOTE to "📝 Ideas & Notes"
-            ).forEach { (cat, label) ->
-                val active = selectedFilter == cat
+        // Search Bar
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            placeholder = { Text("Search book titles, authors, quotes, or takeaways...") },
+            leadingIcon = { Icon(Icons.Default.Search, null, tint = AppColors.TextSecondary) },
+            singleLine = true,
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp)
+        )
+
+        // Category Filter Row
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(vertical = 6.dp)
+        ) {
+            item {
                 FilterChip(
-                    selected = active,
-                    onClick = { selectedFilter = cat },
-                    label = { Text(label) }
+                    selected = selectedCat == null,
+                    onClick = { selectedCat = null },
+                    label = { Text("All (${vm.notes.size})") }
+                )
+            }
+            items(NoteCategory.entries) { cat ->
+                FilterChip(
+                    selected = selectedCat == cat,
+                    onClick = { selectedCat = cat },
+                    label = { Text(cat.label) }
                 )
             }
         }
@@ -1914,76 +1642,91 @@ fun AdvancedNotebookScreen(vm: HabitTrackerViewModel) {
             contentPadding = PaddingValues(vertical = 10.dp)
         ) {
             items(displayedNotes, key = { it.id }) { note ->
-                NotebookCard(note = note)
+                StudioNotebookCard(
+                    note = note,
+                    onTogglePin = { vm.togglePinNote(context, note.id) },
+                    onDelete = { vm.deleteNotebookEntry(context, note.id) }
+                )
             }
         }
     }
 
-    if (showCreateNoteDialog) {
-        CreateNotebookDialog(
-            onDismiss = { showCreateNoteDialog = false },
-            onSave = { newEntry ->
-                vm.addNotebookEntry(newEntry)
-                showCreateNoteDialog = false
+    if (showCreateNoteModal) {
+        StudioCreateNoteDialog(
+            onDismiss = { showCreateNoteModal = false },
+            onSave = { entry ->
+                vm.addNotebookEntry(context, entry)
+                showCreateNoteModal = false
             }
         )
     }
 }
 
 @Composable
-fun NotebookCard(note: NotebookEntry) {
+fun StudioNotebookCard(
+    note: NotebookEntry,
+    onTogglePin: () -> Unit,
+    onDelete: () -> Unit
+) {
     val accent = Color(note.coverColorHex)
-    var expanded by remember { mutableStateOf(true) }
+    var showFlashcardAnswer by remember { mutableStateOf(false) }
 
     Surface(
         color = AppColors.BgCard,
-        shape = RoundedCornerShape(22.dp),
-        border = BorderStroke(1.dp, accent.copy(alpha = 0.4f)),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { expanded = !expanded }
+        shape = RoundedCornerShape(24.dp),
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.45f)),
+        modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // Book Spine / Accent Pillar
                 Box(
                     modifier = Modifier
                         .width(6.dp)
-                        .height(48.dp)
-                        .clip(RoundedCornerShape(3.dp))
+                        .height(52.dp)
+                        .clip(RoundedCornerShape(4.dp))
                         .background(accent)
                 )
                 Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = if (note.category == NoteCategory.BOOK_SUMMARY) "BOOK SUMMARY" else "NOTE",
+                            text = note.category.label.uppercase(),
                             color = accent,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.ExtraBold
                         )
-                        Spacer(Modifier.width(8.dp))
-                        Text(text = "• ${note.updatedAt}", color = AppColors.TextMuted, fontSize = 10.sp)
+                        if (note.category == NoteCategory.BOOK_SUMMARY) {
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = "• ${note.readingProgress}% Read",
+                                color = AppColors.MintGlow,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                     Text(
                         text = note.title,
                         color = AppColors.TextPrimary,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp
                     )
                     Text(
-                        text = note.subtitleOrAuthor,
+                        text = note.authorOrSubtitle,
                         color = AppColors.TextSecondary,
                         fontSize = 13.sp
                     )
                 }
 
-                if (note.category == NoteCategory.BOOK_SUMMARY) {
-                    Row {
-                        repeat(note.rating) {
-                            Text("★", color = AppColors.AmberGold, fontSize = 14.sp)
-                        }
-                    }
+                IconButton(onClick = onTogglePin) {
+                    Icon(
+                        imageVector = if (note.isPinned) Icons.Default.PushPin else Icons.Default.PinInvoke,
+                        contentDescription = "Pin",
+                        tint = if (note.isPinned) AppColors.SolarGold else AppColors.TextMuted
+                    )
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Default.DeleteOutline, null, tint = AppColors.TextMuted)
                 }
             }
 
@@ -1991,12 +1734,12 @@ fun NotebookCard(note: NotebookEntry) {
                 Spacer(Modifier.height(12.dp))
                 Surface(
                     color = AppColors.BgCardElevated,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
                         text = "“${note.favoriteQuote}”",
-                        color = AppColors.MintGreen,
+                        color = AppColors.MintGlow,
                         fontStyle = FontStyle.Italic,
                         fontSize = 13.sp,
                         modifier = Modifier.padding(12.dp)
@@ -2004,146 +1747,55 @@ fun NotebookCard(note: NotebookEntry) {
                 }
             }
 
-            AnimatedVisibility(visible = expanded) {
-                Column(modifier = Modifier.padding(top = 12.dp)) {
-                    if (note.keyTakeaways.isNotEmpty()) {
-                        Text(
-                            text = "KEY TAKEAWAYS",
-                            color = accent,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(Modifier.height(6.dp))
-                        note.keyTakeaways.forEach { bullet ->
-                            Row(modifier = Modifier.padding(vertical = 2.dp)) {
-                                Text("• ", color = accent, fontWeight = FontWeight.Bold)
-                                Text(bullet, color = AppColors.TextPrimary, fontSize = 13.sp)
-                            }
-                        }
-                        Spacer(Modifier.height(10.dp))
-                    }
-
-                    Text(
-                        text = note.content,
-                        color = AppColors.TextSecondary,
-                        fontSize = 13.sp,
-                        lineHeight = 19.sp
-                    )
-                }
-            }
-        }
-    }
-}
-
-// ============================================================================
-// FULL-SCREEN CELEBRATION EFFECTS OVERLAY (Confetti, Shockwave, & Trophy Banner)
-// ============================================================================
-private data class ConfettiParticle(
-    val startX: Float,
-    val startY: Float,
-    val velocityX: Float,
-    val velocityY: Float,
-    val color: Color,
-    val radius: Float
-)
-
-@Composable
-fun FullScreenCelebrationOverlay(
-    title: String,
-    subtitle: String,
-    onDismiss: () -> Unit
-) {
-    val particles = remember {
-        List(95) {
-            val angle = Random.nextDouble(0.0, 2.0 * Math.PI)
-            val speed = Random.nextFloat() * 900f + 220f
-            ConfettiParticle(
-                startX = 0.5f,
-                startY = 0.42f,
-                velocityX = (cos(angle) * speed).toFloat(),
-                velocityY = (sin(angle) * speed - 300f).toFloat(),
-                color = AppColors.AccentPresets.random(),
-                radius = Random.nextFloat() * 10f + 6f
-            )
-        }
-    }
-
-    val animProgress = remember { Animatable(0f) }
-    LaunchedEffect(Unit) {
-        animProgress.animateTo(
-            targetValue = 1f,
-            animationSpec = tween(durationMillis = 2800, easing = LinearOutSlowInEasing)
-        )
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.72f))
-            .clickable { onDismiss() },
-        contentAlignment = Alignment.Center
-    ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val t = animProgress.value
-            val cx = size.width * 0.5f
-            val cy = size.height * 0.42f
-
-            // Expanding Neon Shockwave Ring
-            drawCircle(
-                color = AppColors.NeonGreen.copy(alpha = (1f - t).coerceIn(0f, 1f)),
-                radius = size.minDimension * 0.75f * t,
-                center = Offset(cx, cy),
-                style = Stroke(width = 6.dp.toPx())
-            )
-
-            // 95 Physics-driven Confetti Particles
-            particles.forEach { p ->
-                val gravity = 1150f * t * t
-                val x = cx + p.velocityX * t
-                val y = cy + p.velocityY * t + 0.5f * gravity
-                val alpha = (1f - t * 0.85f).coerceIn(0f, 1f)
-                drawCircle(
-                    color = p.color.copy(alpha = alpha),
-                    radius = p.radius,
-                    center = Offset(x, y)
-                )
-            }
-        }
-
-        // Celebration Card
-        Surface(
-            color = AppColors.BgCard,
-            shape = RoundedCornerShape(28.dp),
-            border = BorderStroke(2.dp, AppColors.NeonGreen),
-            modifier = Modifier
-                .padding(32.dp)
-                .fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier.padding(28.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text("🏆", fontSize = 54.sp)
+            if (note.keyTakeaways.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))
+                Text("💡 KEY TAKEAWAYS", color = accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                note.keyTakeaways.forEach { item ->
+                    Row(modifier = Modifier.padding(vertical = 2.dp)) {
+                        Text("• ", color = accent, fontWeight = FontWeight.Bold)
+                        Text(item, color = AppColors.TextPrimary, fontSize = 13.sp)
+                    }
+                }
+            }
+
+            if (note.detailedNotes.isNotBlank()) {
+                Spacer(Modifier.height(10.dp))
                 Text(
-                    text = title,
-                    color = AppColors.NeonGreen,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.ExtraBold
+                    text = note.detailedNotes,
+                    color = AppColors.TextSecondary,
+                    fontSize = 13.sp,
+                    lineHeight = 19.sp
                 )
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = subtitle,
-                    color = AppColors.TextPrimary,
-                    fontSize = 14.sp
-                )
-                Spacer(Modifier.height(18.dp))
-                Button(
-                    onClick = onDismiss,
-                    colors = ButtonDefaults.buttonColors(containerColor = AppColors.NeonGreen),
-                    shape = RoundedCornerShape(14.dp)
+            }
+
+            // Interactive Active-Recall Flashcard
+            if (note.flashcards.isNotEmpty()) {
+                val card = note.flashcards.first()
+                Spacer(Modifier.height(12.dp))
+                Surface(
+                    color = accent.copy(alpha = 0.12f),
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, accent.copy(alpha = 0.4f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showFlashcardAnswer = !showFlashcardAnswer }
                 ) {
-                    Text("Keep Crushing It!", color = Color.Black, fontWeight = FontWeight.Bold)
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = if (showFlashcardAnswer) "🧠 FLASHCARD ANSWER (Tap to flip)" else "🧠 ACTIVE RECALL QUESTION (Tap to reveal)",
+                            color = accent,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = if (showFlashcardAnswer) card.answer else card.question,
+                            color = AppColors.TextPrimary,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 13.sp
+                        )
+                    }
                 }
             }
         }
@@ -2151,73 +1803,294 @@ fun FullScreenCelebrationOverlay(
 }
 
 // ============================================================================
-// GOOGLE ACCOUNT & CLOUD BACKUP DIALOG + CREATION DIALOGS
+// BUILT-IN POMODORO FOCUS TIMER MODAL, ANALYTICS & GOOGLE DRIVE BACKUP VAULT
 // ============================================================================
 @Composable
-fun GoogleCloudBackupDialog(
+fun FocusTimerStudioDialog(
     vm: HabitTrackerViewModel,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    var emailInput by remember { mutableStateOf(vm.connectedGoogleEmail.value ?: "") }
+    val rem = vm.focusRemainingSeconds.longValue
+    val tot = vm.focusTotalSeconds.longValue.coerceAtLeast(1L)
+    val progress = (rem.toFloat() / tot.toFloat()).coerceIn(0f, 1f)
+    val formatted = String.format(Locale.US, "%02d:%02d", rem / 60, rem % 60)
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = AppColors.BgCard,
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.CloudSync, null, tint = AppColors.NeonGreen)
-                Spacer(Modifier.width(10.dp))
-                Text("Google Drive Backup", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold)
-            }
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            color = AppColors.BgCard,
+            shape = RoundedCornerShape(28.dp),
+            border = BorderStroke(1.5.dp, AppColors.CyberCyan),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 Text(
-                    "Connect your Google Account to keep encrypted snapshots of your habits, streaks, journal memories, and book notes.",
-                    color = AppColors.TextSecondary,
-                    fontSize = 13.sp
+                    text = "DEEP FOCUS STUDIO",
+                    color = AppColors.CyberCyan,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.ExtraBold
                 )
-                OutlinedTextField(
-                    value = emailInput,
-                    onValueChange = { emailInput = it },
-                    label = { Text("Google Account Email") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = vm.activeFocusTitle.value,
+                    color = AppColors.TextPrimary,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
                 )
+
+                Spacer(Modifier.height(22.dp))
+
+                Box(
+                    modifier = Modifier.size(190.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val stroke = 10.dp.toPx()
+                        drawCircle(color = AppColors.BgCardElevated, style = Stroke(stroke))
+                        drawArc(
+                            brush = Brush.sweepGradient(listOf(AppColors.MintGlow, AppColors.CyberCyan, AppColors.ElectricViolet)),
+                            startAngle = -90f,
+                            sweepAngle = 360f * progress,
+                            useCenter = false,
+                            style = Stroke(width = stroke, cap = StrokeCap.Round)
+                        )
+                    }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = formatted,
+                            color = AppColors.TextPrimary,
+                            fontSize = 38.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        Text(
+                            text = if (vm.isFocusTimerRunning.value) "FLOW STATE ACTIVE" else "READY",
+                            color = AppColors.MintGlow,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(20.dp))
+
+                // Duration Presets
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(15, 25, 45, 60).forEach { mins ->
+                        FilterChip(
+                            selected = (tot / 60L) == mins.toLong(),
+                            onClick = { vm.startFocusTimer(context, vm.activeFocusTitle.value, mins, vm.activeFocusHabitId.value) },
+                            label = { Text("${mins}m") }
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedButton(onClick = { vm.stopFocusTimer() }) {
+                        Text("Reset")
+                    }
+                    Button(
+                        onClick = { vm.togglePauseFocusTimer(context) },
+                        colors = ButtonDefaults.buttonColors(containerColor = AppColors.CyberCyan)
+                    ) {
+                        Text(
+                            text = if (vm.isFocusTimerRunning.value) "Pause" else "Start Focus",
+                            color = Color.Black,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun StudioAnalyticsModal(
+    vm: HabitTrackerViewModel,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(
+            color = AppColors.BgDeep,
+            shape = RoundedCornerShape(28.dp),
+            border = BorderStroke(1.dp, AppColors.BorderSubtle),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Auto-Backup Daily", color = AppColors.TextPrimary, fontSize = 14.sp)
-                    Switch(
-                        checked = vm.autoCloudSync.value,
-                        onCheckedChange = { vm.autoCloudSync.value = it }
+                    Text(
+                        text = "📊 Studio Performance Analytics",
+                        color = AppColors.TextPrimary,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
                     )
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, null, tint = AppColors.TextSecondary)
+                    }
                 }
-                Text(
-                    text = "Last Cloud Snapshot: ${vm.lastCloudBackup.value}",
-                    color = AppColors.MintGreen,
-                    fontSize = 12.sp
-                )
-                if (vm.isSyncingCloud.value) {
-                    LinearProgressIndicator(
-                        color = AppColors.NeonGreen,
+
+                val bestStreakOverall = vm.habits.maxOfOrNull { it.bestStreak() } ?: 0
+                val avgRate = if (vm.habits.isEmpty()) 0 else vm.habits.map { it.completionRate30Days() }.average().roundToInt()
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    StatCardBox(Modifier.weight(1f), "🔥", "$bestStreakOverall d", "Peak Streak", AppColors.SunsetCoral)
+                    StatCardBox(Modifier.weight(1f), "📈", "$avgRate%", "30d Consistency", AppColors.MintGlow)
+                    StatCardBox(Modifier.weight(1f), "⚡", "Lv.${vm.userLevel}", "${vm.userXp.intValue} Total XP", AppColors.ElectricViolet)
+                }
+
+                vm.habits.forEach { habit ->
+                    Surface(
+                        color = AppColors.BgCard,
+                        shape = RoundedCornerShape(18.dp),
+                        border = BorderStroke(1.dp, AppColors.BorderSubtle),
                         modifier = Modifier.fillMaxWidth()
-                    )
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("${habit.emoji} ${habit.title}", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold)
+                                Text("${habit.completionRate30Days()}% (30d)", color = habit.accentColor, fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(Modifier.height(10.dp))
+                            StudioSixteenWeekHeatmap(habit = habit)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun StatCardBox(modifier: Modifier, icon: String, value: String, label: String, accent: Color) {
+    Surface(
+        modifier = modifier,
+        color = AppColors.BgCard,
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.4f))
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Text(icon, fontSize = 20.sp)
+            Spacer(Modifier.height(6.dp))
+            Text(value, color = AppColors.TextPrimary, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
+            Text(label, color = accent, fontSize = 11.sp)
+        }
+    }
+}
+
+@Composable
+fun GoogleDriveBackupVaultDialog(
+    vm: HabitTrackerViewModel,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    var email by remember { mutableStateOf(vm.connectedGoogleEmail.value ?: "") }
+    val storage = remember { StudioStorageManager(context) }
+
+    // Native Android Storage Access Framework -> Saves directly to Google Drive!
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri: Uri? ->
+        uri?.let {
+            val json = vm.persistState(context)
+            val ok = storage.exportBackupToUri(it, json)
+            Toast.makeText(
+                context,
+                if (ok) "Backup saved to Google Drive / Storage!" else "Export failed",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let {
+            val content = storage.readBackupFromUri(it)
+            if (content != null && vm.restoreFromJsonString(content)) {
+                vm.persistState(context)
+                Toast.makeText(context, "Backup restored successfully!", Toast.LENGTH_LONG).show()
+            } else {
+                Toast.makeText(context, "Invalid backup file", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = AppColors.BgCard,
+        title = {
+            Text("☁️ Google Account & Drive Backup", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold)
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    "All habits, streaks, tasks, journal photos, and book summaries auto-save locally and can be backed up directly to your Google Drive.",
+                    color = AppColors.TextSecondary,
+                    fontSize = 13.sp
+                )
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text("Google Account Email") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text("Last Sync: ${vm.lastCloudBackup.value}", color = AppColors.MintGlow, fontSize = 12.sp)
+
+                OutlinedButton(
+                    onClick = { exportLauncher.launch("PulseHabit_GoogleDrive_Backup.json") },
+                    modifier = Modifier.fillMaxWidth(),
+                    border = BorderStroke(1.dp, AppColors.MintGlow)
+                ) {
+                    Icon(Icons.Default.CloudUpload, null, tint = AppColors.MintGlow)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Export Backup to Google Drive", color = AppColors.MintGlow)
+                }
+
+                OutlinedButton(
+                    onClick = { importLauncher.launch(arrayOf("application/json", "*/*")) },
+                    modifier = Modifier.fillMaxWidth(),
+                    border = BorderStroke(1.dp, AppColors.CyberCyan)
+                ) {
+                    Icon(Icons.Default.CloudDownload, null, tint = AppColors.CyberCyan)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Restore Backup from Google Drive", color = AppColors.CyberCyan)
                 }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    vm.connectedGoogleEmail.value = emailInput.ifBlank { null }
+                    vm.connectedGoogleEmail.value = email.ifBlank { null }
                     vm.syncToGoogleCloud(context)
+                    onDismiss()
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = AppColors.NeonGreen)
+                colors = ButtonDefaults.buttonColors(containerColor = AppColors.MintGlow)
             ) {
-                Text("Backup Now", color = Color.Black, fontWeight = FontWeight.Bold)
+                Text("Save & Sync", color = Color.Black, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
@@ -2226,62 +2099,207 @@ fun GoogleCloudBackupDialog(
     )
 }
 
+// ============================================================================
+// FULL-SCREEN CELEBRATION PARTICLE & SHOCKWAVE OVERLAY
+// ============================================================================
+private data class StudioParticle(
+    val vx: Float,
+    val vy: Float,
+    val color: Color,
+    val size: Float
+)
+
 @Composable
-fun CreateHabitDialog(
+fun StudioFullScreenCelebrationOverlay(
+    title: String,
+    subtitle: String,
+    xpEarned: Int,
+    level: Int,
+    rank: String,
+    onDismiss: () -> Unit
+) {
+    val particles = remember {
+        List(110) {
+            val angle = Random.nextDouble(0.0, 2.0 * Math.PI)
+            val speed = Random.nextFloat() * 980f + 240f
+            StudioParticle(
+                vx = (cos(angle) * speed).toFloat(),
+                vy = (sin(angle) * speed - 340f).toFloat(),
+                color = AppColors.StudioPalette.random(),
+                size = Random.nextFloat() * 11f + 6f
+            )
+        }
+    }
+
+    val anim = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        anim.animateTo(1f, tween(2900, easing = LinearOutSlowInEasing))
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.78f))
+            .clickable { onDismiss() },
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val t = anim.value
+            val cx = size.width * 0.5f
+            val cy = size.height * 0.42f
+
+            drawCircle(
+                color = AppColors.MintGlow.copy(alpha = (1f - t).coerceIn(0f, 1f)),
+                radius = size.minDimension * 0.8f * t,
+                center = Offset(cx, cy),
+                style = Stroke(width = 6.dp.toPx())
+            )
+
+            particles.forEach { p ->
+                val gravity = 1200f * t * t
+                val x = cx + p.vx * t
+                val y = cy + p.vy * t + 0.5f * gravity
+                val a = (1f - t * 0.85f).coerceIn(0f, 1f)
+                drawCircle(
+                    color = p.color.copy(alpha = a),
+                    radius = p.size,
+                    center = Offset(x, y)
+                )
+            }
+        }
+
+        Surface(
+            color = AppColors.BgCard,
+            shape = RoundedCornerShape(30.dp),
+            border = BorderStroke(2.dp, AppColors.MintGlow),
+            modifier = Modifier
+                .padding(28.dp)
+                .fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(28.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text("🏆", fontSize = 56.sp)
+                Spacer(Modifier.height(8.dp))
+                Surface(
+                    color = AppColors.MintGlow.copy(alpha = 0.2f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        text = "+$xpEarned XP  •  Lv.$level $rank",
+                        color = AppColors.MintGlow,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = title,
+                    color = AppColors.TextPrimary,
+                    fontSize = 21.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = subtitle,
+                    color = AppColors.TextSecondary,
+                    fontSize = 14.sp
+                )
+                Spacer(Modifier.height(20.dp))
+                Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(containerColor = AppColors.MintGlow),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Text("Continue Momentum", color = Color.Black, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+// ============================================================================
+// CREATION DIALOGS (Habit, Todo, Journal, Notebook, Custom Measurement)
+// ============================================================================
+@Composable
+fun StudioCreateHabitDialog(
     onDismiss: () -> Unit,
-    onSave: (String, String, String, HabitType, Long, Float, String, Float) -> Unit
+    onSave: (String, String, String, TimeOfDay, String, HabitType, Long, Float, String, Float) -> Unit
 ) {
     var title by remember { mutableStateOf("") }
     var emoji by remember { mutableStateOf("⚡") }
-    var category by remember { mutableStateOf("Fitness") }
+    var category by remember { mutableStateOf("Growth") }
+    var timeOfDay by remember { mutableStateOf(TimeOfDay.MORNING) }
+    var cue by remember { mutableStateOf("") }
     var type by remember { mutableStateOf(HabitType.CHECKLIST) }
     var target by remember { mutableStateOf("1") }
     var unit by remember { mutableStateOf("times") }
     var step by remember { mutableStateOf("1") }
+    var selectedColor by remember { mutableLongStateOf(0xFF34D399L) }
+
+    val colorChoices = listOf(0xFF34D399L, 0xFFA855F7L, 0xFF06B6D4L, 0xFFF97316L, 0xFFF59E0BL, 0xFFF43F5EL)
 
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = AppColors.BgCard,
-        title = { Text("Create New Habit", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold) },
+        title = { Text("Design New Habit", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = emoji,
-                        onValueChange = { emoji = it },
-                        label = { Text("Icon") },
-                        modifier = Modifier.width(72.dp)
-                    )
-                    OutlinedTextField(
-                        value = title,
-                        onValueChange = { title = it },
-                        label = { Text("Habit Name") },
-                        modifier = Modifier.weight(1f)
-                    )
+                    OutlinedTextField(value = emoji, onValueChange = { emoji = it }, label = { Text("Icon") }, modifier = Modifier.width(70.dp))
+                    OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Habit Name") }, modifier = Modifier.weight(1f))
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    HabitType.entries.forEach { hType ->
-                        FilterChip(
-                            selected = type == hType,
-                            onClick = { type = hType },
-                            label = { Text(hType.name.take(9), fontSize = 11.sp) }
-                        )
+                OutlinedTextField(
+                    value = cue,
+                    onValueChange = { cue = it },
+                    label = { Text("Habit Stacking Cue (e.g. After morning coffee)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(HabitType.entries) { t ->
+                        FilterChip(selected = type == t, onClick = { type = t }, label = { Text(t.label, fontSize = 11.sp) })
                     }
                 }
-                if (type == HabitType.MEASUREMENT) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(TimeOfDay.entries) { tod ->
+                        FilterChip(selected = timeOfDay == tod, onClick = { timeOfDay = tod }, label = { Text("${tod.icon} ${tod.label}", fontSize = 11.sp) })
+                    }
+                }
+                if (type == HabitType.MEASUREMENT || type == HabitType.FOCUS_TIMER) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
                             value = target,
                             onValueChange = { target = it },
-                            label = { Text("Target") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            label = { Text("Daily Goal") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             modifier = Modifier.weight(1f)
                         )
                         OutlinedTextField(
                             value = unit,
                             onValueChange = { unit = it },
-                            label = { Text("Unit (hrs/ml)") },
+                            label = { Text("Unit (mins/L)") },
                             modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    colorChoices.forEach { hex ->
+                        Box(
+                            modifier = Modifier
+                                .size(30.dp)
+                                .clip(CircleShape)
+                                .background(Color(hex))
+                                .border(
+                                    width = if (selectedColor == hex) 2.5.dp else 0.dp,
+                                    color = Color.White,
+                                    shape = CircleShape
+                                )
+                                .clickable { selectedColor = hex }
                         )
                     }
                 }
@@ -2295,32 +2313,275 @@ fun CreateHabitDialog(
                             title,
                             emoji,
                             category,
+                            timeOfDay,
+                            cue,
                             type,
-                            0xFF4ADE80,
+                            selectedColor,
                             target.toFloatOrNull() ?: 1f,
                             unit,
                             step.toFloatOrNull() ?: 1f
                         )
                     }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = AppColors.NeonGreen)
+                colors = ButtonDefaults.buttonColors(containerColor = AppColors.MintGlow)
             ) {
-                Text("Create", color = Color.Black, fontWeight = FontWeight.Bold)
+                Text("Create Habit", color = Color.Black, fontWeight = FontWeight.Bold)
             }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }
 
 @Composable
-fun MeasurementInputDialog(
-    habit: Habit,
+fun StudioAddTodoDialog(
     onDismiss: () -> Unit,
-    onConfirm: (Float) -> Unit
+    onSave: (String, String, TodoPriority, String, Int, List<String>, Boolean) -> Unit
 ) {
-    var valueText by remember { mutableStateOf(habit.valueOn(LocalDate.now()).formatClean()) }
+    var title by remember { mutableStateOf("") }
+    var category by remember { mutableStateOf("Work") }
+    var priority by remember { mutableStateOf(TodoPriority.P1_CRITICAL) }
+    var mins by remember { mutableStateOf("25") }
+    var subtasksRaw by remember { mutableStateOf("") }
+    var recurring by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = AppColors.BgCard,
+        title = { Text("Add Priority Mission", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Mission Title") })
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(TodoPriority.entries) { p ->
+                        FilterChip(selected = priority == p, onClick = { priority = p }, label = { Text(p.label, fontSize = 11.sp) })
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text("Category") }, modifier = Modifier.weight(1f))
+                    OutlinedTextField(
+                        value = mins,
+                        onValueChange = { mins = it },
+                        label = { Text("Focus Mins") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.width(105.dp)
+                    )
+                }
+                OutlinedTextField(
+                    value = subtasksRaw,
+                    onValueChange = { subtasksRaw = it },
+                    label = { Text("Subtasks / Checklist (one per line)") },
+                    minLines = 3
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (title.isNotBlank()) {
+                        onSave(
+                            title,
+                            category,
+                            priority,
+                            "Today",
+                            mins.toIntOrNull() ?: 25,
+                            subtasksRaw.lines(),
+                            recurring
+                        )
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = AppColors.MintGlow)
+            ) {
+                Text("Add Mission", color = Color.Black, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+@Composable
+fun StudioCreateJournalDialog(
+    onDismiss: () -> Unit,
+    onSave: (String, String, Int, String, String, String, List<String>, List<String>, List<String>, Boolean) -> Unit
+) {
+    var title by remember { mutableStateOf("") }
+    var mood by remember { mutableStateOf("🔥") }
+    var energy by remember { mutableFloatStateOf(8f) }
+    var wins by remember { mutableStateOf("") }
+    var story by remember { mutableStateOf("") }
+    var mistakes by remember { mutableStateOf("") }
+    var actionsRaw by remember { mutableStateOf("") }
+    var pushToTodo by remember { mutableStateOf(true) }
+    val photos = remember { mutableStateListOf<String>() }
+
+    val picker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 6)
+    ) { uris ->
+        uris.forEach { photos.add(it.toString()) }
+    }
+
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(
+            color = AppColors.BgCard,
+            shape = RoundedCornerShape(26.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(20.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text("Log Daily Reflection & Memories", color = AppColors.TextPrimary, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("🔥", "🌟", "😊", "🧘", "💪", "🌧️").forEach { e ->
+                        FilterChip(selected = mood == e, onClick = { mood = e }, label = { Text(e, fontSize = 16.sp) })
+                    }
+                }
+
+                Text("Energy Level: ${energy.roundToInt()}/10", color = AppColors.MintGlow, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Slider(value = energy, onValueChange = { energy = it }, valueRange = 1f..10f, steps = 8)
+
+                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Headline of the Day") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = wins, onValueChange = { wins = it }, label = { Text("Key Wins & Gratitude") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = story, onValueChange = { story = it }, label = { Text("Daily Activities & Story") }, minLines = 3, modifier = Modifier.fillMaxWidth())
+
+                OutlinedButton(
+                    onClick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    border = BorderStroke(1.dp, AppColors.ElectricViolet)
+                ) {
+                    Icon(Icons.Default.AddPhotoAlternate, null, tint = AppColors.ElectricViolet)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Upload Memory Photos (${photos.size} attached)", color = AppColors.ElectricViolet)
+                }
+
+                OutlinedTextField(value = mistakes, onValueChange = { mistakes = it }, label = { Text("What went wrong / Mistakes made?") }, minLines = 2, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = actionsRaw, onValueChange = { actionsRaw = it }, label = { Text("Actions I must take tomorrow (1 per line)") }, minLines = 2, modifier = Modifier.fillMaxWidth())
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = pushToTodo, onCheckedChange = { pushToTodo = it })
+                    Text("Auto-convert actions into P1 Critical To-Do missions", color = AppColors.TextSecondary, fontSize = 12.sp)
+                }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onDismiss) { Text("Cancel") }
+                    Spacer(Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            onSave(
+                                title,
+                                mood,
+                                energy.roundToInt(),
+                                wins,
+                                story,
+                                mistakes,
+                                actionsRaw.lines().filter { it.isNotBlank() },
+                                photos.toList(),
+                                listOf("DailyAudit"),
+                                pushToTodo
+                            )
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = AppColors.MintGlow)
+                    ) {
+                        Text("Save Entry", color = Color.Black, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun StudioCreateNoteDialog(
+    onDismiss: () -> Unit,
+    onSave: (NotebookEntry) -> Unit
+) {
+    var category by remember { mutableStateOf(NoteCategory.BOOK_SUMMARY) }
+    var title by remember { mutableStateOf("") }
+    var author by remember { mutableStateOf("") }
+    var progress by remember { mutableStateOf("100") }
+    var quote by remember { mutableStateOf("") }
+    var takeaways by remember { mutableStateOf("") }
+    var notes by remember { mutableStateOf("") }
+    var flashQ by remember { mutableStateOf("") }
+    var flashA by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = AppColors.BgCard,
+        title = { Text("Add to Second-Brain Vault", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(NoteCategory.entries) { c ->
+                        FilterChip(selected = category == c, onClick = { category = c }, label = { Text(c.label, fontSize = 11.sp) })
+                    }
+                }
+                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Book / Note Title") })
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(value = author, onValueChange = { author = it }, label = { Text("Author / Topic") }, modifier = Modifier.weight(1f))
+                    if (category == NoteCategory.BOOK_SUMMARY) {
+                        OutlinedTextField(
+                            value = progress,
+                            onValueChange = { progress = it },
+                            label = { Text("% Read") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.width(85.dp)
+                        )
+                    }
+                }
+                OutlinedTextField(value = quote, onValueChange = { quote = it }, label = { Text("Favorite Quote") })
+                OutlinedTextField(value = takeaways, onValueChange = { takeaways = it }, label = { Text("Key Takeaways (1 per line)") }, minLines = 2)
+                OutlinedTextField(value = notes, onValueChange = { notes = it }, label = { Text("Detailed Summary / Notes") }, minLines = 3)
+                OutlinedTextField(value = flashQ, onValueChange = { flashQ = it }, label = { Text("Active Recall Question (Optional)") })
+                OutlinedTextField(value = flashA, onValueChange = { flashA = it }, label = { Text("Active Recall Answer") })
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (title.isNotBlank()) {
+                        val fc = if (flashQ.isNotBlank() && flashA.isNotBlank()) listOf(FlashcardItem(flashQ, flashA)) else emptyList()
+                        onSave(
+                            NotebookEntry(
+                                category = category,
+                                title = title,
+                                authorOrSubtitle = author,
+                                readingProgress = (progress.toIntOrNull() ?: 100).coerceIn(0, 100),
+                                favoriteQuote = quote,
+                                keyTakeaways = takeaways.lines().filter { it.isNotBlank() },
+                                detailedNotes = notes,
+                                flashcards = fc
+                            )
+                        )
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = AppColors.ElectricViolet)
+            ) {
+                Text("Save to Vault", color = Color.Black, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+@Composable
+fun CustomMeasurementDialog(
+    habit: Habit,
+    selectedDate: LocalDate,
+    onDismiss: () -> Unit,
+    onSave: (Float) -> Unit
+) {
+    var valueText by remember { mutableStateOf(habit.valueOn(selectedDate).cleanStr()) }
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = AppColors.BgCard,
@@ -2329,14 +2590,14 @@ fun MeasurementInputDialog(
             OutlinedTextField(
                 value = valueText,
                 onValueChange = { valueText = it },
-                label = { Text("Amount (${habit.unit}) • Goal: ${habit.targetValue.formatClean()}") },
+                label = { Text("Amount (${habit.unit}) • Goal: ${habit.targetValue.cleanStr()}") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
             )
         },
         confirmButton = {
             Button(
-                onClick = { onConfirm(valueText.toFloatOrNull() ?: 0f) },
-                colors = ButtonDefaults.buttonColors(containerColor = AppColors.NeonGreen)
+                onClick = { onSave(valueText.toFloatOrNull() ?: 0f) },
+                colors = ButtonDefaults.buttonColors(containerColor = AppColors.MintGlow)
             ) {
                 Text("Save", color = Color.Black, fontWeight = FontWeight.Bold)
             }
@@ -2345,109 +2606,5 @@ fun MeasurementInputDialog(
     )
 }
 
-@Composable
-fun AddTodoTaskDialog(
-    onDismiss: () -> Unit,
-    onAdd: (String, String, Boolean) -> Unit
-) {
-    var title by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf("Personal") }
-    var recurring by remember { mutableStateOf(false) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = AppColors.BgCard,
-        title = { Text("New To-Do Task", color = AppColors.TextPrimary) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text("Task description") }
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("Personal", "Work", "Health").forEach { cat ->
-                        FilterChip(
-                            selected = category == cat,
-                            onClick = { category = cat },
-                            label = { Text(cat) }
-                        )
-                    }
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = recurring, onCheckedChange = { recurring = it })
-                    Text("Recurring daily task", color = AppColors.TextSecondary)
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { onAdd(title, category, recurring) },
-                colors = ButtonDefaults.buttonColors(containerColor = AppColors.NeonGreen)
-            ) {
-                Text("Add Task", color = Color.Black, fontWeight = FontWeight.Bold)
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
-    )
-}
-
-@Composable
-fun CreateNotebookDialog(
-    onDismiss: () -> Unit,
-    onSave: (NotebookEntry) -> Unit
-) {
-    var isBook by remember { mutableStateOf(true) }
-    var title by remember { mutableStateOf("") }
-    var author by remember { mutableStateOf("") }
-    var quote by remember { mutableStateOf("") }
-    var takeaways by remember { mutableStateOf("") }
-    var content by remember { mutableStateOf("") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = AppColors.BgCard,
-        title = { Text("Add to Notebook Vault", color = AppColors.TextPrimary) },
-        text = {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = isBook, onClick = { isBook = true }, label = { Text("Book Summary") })
-                    FilterChip(selected = !isBook, onClick = { isBook = false }, label = { Text("General Note") })
-                }
-                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Title") })
-                OutlinedTextField(value = author, onValueChange = { author = it }, label = { Text(if (isBook) "Author" else "Topic") })
-                OutlinedTextField(value = quote, onValueChange = { quote = it }, label = { Text("Favorite Quote") })
-                OutlinedTextField(value = takeaways, onValueChange = { takeaways = it }, label = { Text("Key Takeaways (1 per line)") }, minLines = 2)
-                OutlinedTextField(value = content, onValueChange = { content = it }, label = { Text("Detailed Summary / Notes") }, minLines = 3)
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    if (title.isNotBlank()) {
-                        onSave(
-                            NotebookEntry(
-                                category = if (isBook) NoteCategory.BOOK_SUMMARY else NoteCategory.GENERAL_NOTE,
-                                title = title,
-                                subtitleOrAuthor = author,
-                                favoriteQuote = quote,
-                                keyTakeaways = takeaways.lines().filter { it.isNotBlank() },
-                                content = content
-                            )
-                        )
-                    }
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = AppColors.LavenderPurple)
-            ) {
-                Text("Save Note", color = Color.Black, fontWeight = FontWeight.Bold)
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
-    )
-}
-
-private fun Float.formatClean(): String =
+private fun Float.cleanStr(): String =
     if (this % 1f == 0f) this.toInt().toString() else String.format(Locale.US, "%.1f", this)
