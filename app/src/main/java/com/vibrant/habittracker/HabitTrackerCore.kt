@@ -68,7 +68,6 @@ object AppColors {
     val SolarGold = Color(0xFFFBBF24)
     val IndigoPulse = Color(0xFF6366F1)
 
-    // Backward-compatible aliases so older MainActivity versions also compile
     val NeonGreen = MintGlow
     val NeonGreenGlow = Color(0xFF064E3B)
     val MintGreen = MintGlow
@@ -150,7 +149,98 @@ enum class SanctuaryReadingTheme(
 }
 
 // ============================================================================
-// 2. DATA MODELS
+// 2. ALPHA CHARACTER EVOLUTION & RPG SYSTEM
+// ============================================================================
+enum class AlphaCharacterStage(
+    val stageNumber: Int,
+    val title: String,
+    val formName: String,
+    val weaponOrAura: String,
+    val perkDescription: String,
+    val primaryColorHex: Long,
+    val secondaryColorHex: Long
+) {
+    STAGE_1_RECRUIT(
+        1,
+        "Alpha Recruit",
+        "Spark Initiate",
+        "Kinetic Gauntlets",
+        "Awakening discipline. Every habit builds your core.",
+        0xFF06B6D4,
+        0xFF34D399
+    ),
+    STAGE_2_VANGUARD(
+        2,
+        "Iron Vanguard",
+        "Armored Striker",
+        "Cobalt Plasma Shield",
+        "Unbreakable momentum. +15% Combat Power from streaks.",
+        0xFF34D399,
+        0xFF6366F1
+    ),
+    STAGE_3_RONIN(
+        3,
+        "Cyber Ronin",
+        "Shadow Blade Master",
+        "Twin Violet Katana",
+        "Laser focus unlocked. Deep work slices through distraction.",
+        0xFFA855F7,
+        0xFF06B6D4
+    ),
+    STAGE_4_TITAN(
+        4,
+        "Solar Titan",
+        "Golden Warlord",
+        "Radiant Sun Wings",
+        "Relentless execution. Commands the morning & evening.",
+        0xFFF97316,
+        0xFFFBBF24
+    ),
+    STAGE_5_SOVEREIGN(
+        5,
+        "Void Sovereign",
+        "Cosmic Emperor",
+        "Astral Lightning Halo",
+        "Master of systems. Habits run on automatic instinct.",
+        0xFFF43F5E,
+        0xFFA855F7
+    ),
+    STAGE_6_APEX_GOD(
+        6,
+        "Apex Alpha God",
+        "Transcendent Omnipotent",
+        "Eternal Zenith Crown",
+        "Peak human potential achieved. Unstoppable force.",
+        0xFFFBBF24,
+        0xFFF43F5E
+    );
+
+    val primaryColor get() = Color(primaryColorHex)
+    val secondaryColor get() = Color(secondaryColorHex)
+
+    companion object {
+        fun forLevel(level: Int): AlphaCharacterStage = when {
+            level <= 2 -> STAGE_1_RECRUIT
+            level <= 4 -> STAGE_2_VANGUARD
+            level <= 7 -> STAGE_3_RONIN
+            level <= 11 -> STAGE_4_TITAN
+            level <= 15 -> STAGE_5_SOVEREIGN
+            else -> STAGE_6_APEX_GOD
+        }
+    }
+}
+
+@Immutable
+data class AlphaRpgStats(
+    val strength: Int,   // Driven by Fitness/Health habits
+    val focus: Int,      // Driven by Career/Work habits & completed Tasks
+    val willpower: Int,  // Driven by Streaks & Quit-Shields
+    val wisdom: Int,     // Driven by Journal & Second-Brain Vault entries
+    val combatPower: Int // Overall Alpha Power Rating
+)
+
+// ============================================================================
+// 3. CORE DATA MODELS
 // ============================================================================
 enum class HabitType(val label: String) {
     CHECKLIST("Checklist"),
@@ -244,11 +334,11 @@ data class Habit(
     fun totalLoggedValue(): Float = totalVolume()
 }
 
-enum class TodoPriority(val label: String, val colorHex: Long, val xpReward: Int) {
-    P1_CRITICAL("P1 • Critical", 0xFFF43F5E, 35),
-    P2_HIGH("P2 • High", 0xFFF97316, 25),
-    P3_MEDIUM("P3 • Medium", 0xFF06B6D4, 15),
-    P4_LOW("P4 • Routine", 0xFF94A3B8, 10)
+enum class TodoPriority(val label: String, val shortTag: String, val colorHex: Long, val xpReward: Int) {
+    P1_CRITICAL("P1 • Critical", "P1", 0xFFF43F5E, 35),
+    P2_HIGH("P2 • High", "P2", 0xFFF97316, 25),
+    P3_MEDIUM("P3 • Medium", "P3", 0xFF06B6D4, 15),
+    P4_LOW("P4 • Routine", "P4", 0xFF94A3B8, 10)
 }
 
 @Immutable
@@ -323,7 +413,7 @@ data class NotebookEntry(
 )
 
 // ============================================================================
-// 3. SYNTHESIZED SOUND ENGINE (Celebration & Motivational Notification Chime)
+// 4. SYNTHESIZED SOUND ENGINE
 // ============================================================================
 object CelebrationSoundEngine {
 
@@ -437,14 +527,14 @@ object CelebrationSoundEngine {
 }
 
 // ============================================================================
-// 4. SCHEDULED MOTIVATIONAL NOTIFICATIONS
+// 5. SCHEDULED MOTIVATIONAL NOTIFICATIONS
 // ============================================================================
 object ReminderScheduler {
     private val motivationalQuotes = listOf(
-        "Small daily disciplines compound into massive life victories! 🔥",
-        "Your future self is watching right now—make them proud! ⚡",
+        "Alpha mindset: Small daily disciplines compound into massive victories! 🔥",
+        "Your character is evolving—complete your mission and claim your XP! ⚡",
         "Action cures resistance. Start for just 2 minutes! 🚀",
-        "Winners don't wait for motivation—they execute their systems! 🏆"
+        "Alphas don't wait for mood—they execute their systems! 🏆"
     )
 
     fun scheduleReminder(context: Context, itemId: String, title: String, timeStr: String, isHabit: Boolean) {
@@ -513,12 +603,12 @@ class MotivationReminderReceiver : BroadcastReceiver() {
 
         CelebrationSoundEngine.playMotivationalReminderSound(context)
 
-        val channelId = "zenith_motivation_channel"
+        val channelId = "alpha_motivation_channel"
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 channelId,
-                "Motivational Habit & Task Reminders",
+                "Alpha Habit & Task Reminders",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "Custom scheduled reminders with motivational sound"
@@ -539,9 +629,9 @@ class MotivationReminderReceiver : BroadcastReceiver() {
 
         val notification = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(android.R.drawable.ic_popup_reminder)
-            .setContentTitle(if (isHabit) "⚡ Habit Time: $title" else "🎯 Task Due: $title")
+            .setContentTitle(if (isHabit) "⚡ Alpha Habit: $title" else "🎯 Alpha Mission: $title")
             .setContentText(quote)
-            .setStyle(NotificationCompat.BigTextStyle().bigText("$quote\nTap to open Zenith Studio and claim your XP!"))
+            .setStyle(NotificationCompat.BigTextStyle().bigText("$quote\nTap to open Alpha Studio and power up your character!"))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(contentPendingIntent)
@@ -556,7 +646,7 @@ class MotivationReminderReceiver : BroadcastReceiver() {
 }
 
 // ============================================================================
-// 5. INTERACTIVE HOME SCREEN WIDGET PROVIDER
+// 6. DUAL INTERACTIVE HOME SCREEN WIDGETS (1: HABITS WIDGET, 2: TASKS WIDGET)
 // ============================================================================
 class HabitWidgetProvider : AppWidgetProvider() {
 
@@ -572,7 +662,7 @@ class HabitWidgetProvider : AppWidgetProvider() {
             val toggledTitle = storage.toggleHabitDirectlyFromWidget(habitId)
             if (toggledTitle != null) {
                 CelebrationSoundEngine.playCelebrationFanfare(context, isLevelUp = false)
-                Toast.makeText(context, "🏆 $toggledTitle Completed! +30 XP", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "⚡ $toggledTitle Complete! +30 XP to Alpha!", Toast.LENGTH_SHORT).show()
             }
             updateAllWidgets(context)
         }
@@ -647,7 +737,100 @@ class HabitWidgetProvider : AppWidgetProvider() {
                             views.setViewVisibility(rowId, View.GONE)
                         }
                     }
+                    manager.updateAppWidget(widgetId, views)
+                }
+            } catch (_: Exception) {
+            }
+        }
+    }
+}
 
+class TaskWidgetProvider : AppWidgetProvider() {
+
+    override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
+        updateAllTaskWidgets(context)
+    }
+
+    override fun onReceive(context: Context, intent: Intent) {
+        super.onReceive(context, intent)
+        if (intent.action == ACTION_WIDGET_TOGGLE_TASK) {
+            val taskId = intent.getStringExtra(EXTRA_TASK_ID) ?: return
+            val storage = StudioStorageManager(context)
+            val completedTitle = storage.toggleTodoDirectlyFromWidget(taskId)
+            if (completedTitle != null) {
+                CelebrationSoundEngine.playCelebrationFanfare(context, isLevelUp = false)
+                Toast.makeText(context, "🎯 Mission Complete: $completedTitle (+25 XP)", Toast.LENGTH_SHORT).show()
+            }
+            updateAllTaskWidgets(context)
+        }
+    }
+
+    companion object {
+        const val ACTION_WIDGET_TOGGLE_TASK = "com.vibrant.habittracker.ACTION_WIDGET_TOGGLE_TASK"
+        const val EXTRA_TASK_ID = "EXTRA_TASK_ID"
+
+        fun updateAllTaskWidgets(context: Context) {
+            try {
+                val manager = AppWidgetManager.getInstance(context)
+                val ids = manager.getAppWidgetIds(ComponentName(context, TaskWidgetProvider::class.java))
+                if (ids.isEmpty()) return
+
+                val storage = StudioStorageManager(context)
+                val allTodos = storage.loadTodosOnly()
+                    .sortedWith(compareBy<TodoTask> { it.isCompleted }.thenBy { it.priority.ordinal })
+                val pendingCount = allTodos.count { !it.isCompleted }
+
+                val rowIds = listOf(
+                    Triple(R.id.task_widget_row_1, R.id.task_widget_title_1, R.id.task_widget_btn_1),
+                    Triple(R.id.task_widget_row_2, R.id.task_widget_title_2, R.id.task_widget_btn_2),
+                    Triple(R.id.task_widget_row_3, R.id.task_widget_title_3, R.id.task_widget_btn_3),
+                    Triple(R.id.task_widget_row_4, R.id.task_widget_title_4, R.id.task_widget_btn_4)
+                )
+
+                for (widgetId in ids) {
+                    val views = RemoteViews(context.packageName, R.layout.task_widget_layout)
+                    views.setTextViewText(R.id.task_widget_header_score, "$pendingCount Active")
+
+                    val openAppIntent = Intent(context, MainActivity::class.java)
+                    val openPending = PendingIntent.getActivity(
+                        context, 1, openAppIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+                    views.setOnClickPendingIntent(R.id.task_widget_header_title, openPending)
+
+                    for (i in 0 until 4) {
+                        val (rowId, titleId, btnId) = rowIds[i]
+                        if (i < allTodos.size) {
+                            val t = allTodos[i]
+                            views.setViewVisibility(rowId, View.VISIBLE)
+                            val prefix = if (t.isCompleted) "✅" else "[${t.priority.shortTag}]"
+                            views.setTextViewText(titleId, "$prefix ${t.title}")
+                            views.setTextViewText(btnId, "✓")
+                            views.setInt(
+                                btnId,
+                                "setBackgroundResource",
+                                if (t.isCompleted) R.drawable.widget_btn_done else R.drawable.widget_btn_pending
+                            )
+                            views.setTextColor(
+                                btnId,
+                                if (t.isCompleted) android.graphics.Color.BLACK else android.graphics.Color.parseColor("#34D399")
+                            )
+
+                            val toggleIntent = Intent(context, TaskWidgetProvider::class.java).apply {
+                                action = ACTION_WIDGET_TOGGLE_TASK
+                                putExtra(EXTRA_TASK_ID, t.id)
+                            }
+                            val togglePending = PendingIntent.getBroadcast(
+                                context,
+                                t.id.hashCode(),
+                                toggleIntent,
+                                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                            )
+                            views.setOnClickPendingIntent(btnId, togglePending)
+                        } else {
+                            views.setViewVisibility(rowId, View.GONE)
+                        }
+                    }
                     manager.updateAppWidget(widgetId, views)
                 }
             } catch (_: Exception) {
@@ -657,7 +840,7 @@ class HabitWidgetProvider : AppWidgetProvider() {
 }
 
 // ============================================================================
-// 6. LOCAL PERSISTENCE & GOOGLE DRIVE / CLOUD BACKUP ENGINE
+// 7. LOCAL PERSISTENCE & GOOGLE DRIVE / CLOUD BACKUP ENGINE
 // ============================================================================
 class StudioStorageManager(private val context: Context) {
     private val prefs = context.getSharedPreferences("aura_studio_vault_v2", Context.MODE_PRIVATE)
@@ -685,6 +868,7 @@ class StudioStorageManager(private val context: Context) {
             .putString("last_saved_time", nowFormatted)
             .apply()
         HabitWidgetProvider.updateAllWidgets(context)
+        TaskWidgetProvider.updateAllTaskWidgets(context)
         return root.toString(2)
     }
 
@@ -723,6 +907,33 @@ class StudioStorageManager(private val context: Context) {
                         stepSize = o.optDouble("stepSize", 1.0).toFloat(),
                         reminderTime = o.optString("reminderTime", ""),
                         logs = logsMap
+                    )
+                )
+            }
+        } catch (_: Exception) {
+        }
+        return result
+    }
+
+    fun loadTodosOnly(): List<TodoTask> {
+        val jsonStr = getSavedJson() ?: return emptyList()
+        val result = mutableListOf<TodoTask>()
+        try {
+            val root = JSONObject(jsonStr)
+            val todosArr = root.optJSONArray("todos") ?: JSONArray()
+            for (i in 0 until todosArr.length()) {
+                val o = todosArr.getJSONObject(i)
+                result.add(
+                    TodoTask(
+                        id = o.optString("id"),
+                        title = o.optString("title"),
+                        category = o.optString("category", "Personal"),
+                        priority = runCatching { TodoPriority.valueOf(o.optString("priority")) }.getOrDefault(TodoPriority.P2_HIGH),
+                        date = o.optString("date", LocalDate.now().toString()),
+                        reminderTime = o.optString("reminderTime", ""),
+                        isCompleted = o.optBoolean("isCompleted", false),
+                        isRecurring = o.optBoolean("isRecurring", false),
+                        estimatedMinutes = o.optInt("estimatedMinutes", 25)
                     )
                 )
             }
@@ -777,6 +988,33 @@ class StudioStorageManager(private val context: Context) {
         }
     }
 
+    fun toggleTodoDirectlyFromWidget(taskId: String): String? {
+        val jsonStr = getSavedJson() ?: return null
+        try {
+            val root = JSONObject(jsonStr)
+            val todosArr = root.optJSONArray("todos") ?: return null
+            var completedTitle: String? = null
+
+            for (i in 0 until todosArr.length()) {
+                val o = todosArr.getJSONObject(i)
+                if (o.optString("id") == taskId) {
+                    val nowDone = !o.optBoolean("isCompleted", false)
+                    o.put("isCompleted", nowDone)
+                    if (nowDone) completedTitle = o.optString("title")
+                    break
+                }
+            }
+
+            if (completedTitle != null) {
+                root.put("xp", root.optInt("xp", 420) + 25)
+            }
+            prefs.edit().putString("master_state_json", root.toString()).apply()
+            return completedTitle
+        } catch (_: Exception) {
+            return null
+        }
+    }
+
     fun exportBackupToUri(uri: Uri, jsonContent: String): Boolean {
         return try {
             context.contentResolver.openOutputStream(uri)?.use { out ->
@@ -807,7 +1045,7 @@ class StudioStorageManager(private val context: Context) {
         notes: List<NotebookEntry>
     ): JSONObject {
         val root = JSONObject()
-        root.put("schemaVersion", 3)
+        root.put("schemaVersion", 4)
         root.put("exportedAt", System.currentTimeMillis())
         root.put("xp", xp)
         root.put("streakShields", streakShields)
@@ -911,7 +1149,7 @@ class StudioStorageManager(private val context: Context) {
 }
 
 // ============================================================================
-// 7. STUDIO VIEWMODEL (Supports Both New Edit Methods & Legacy Method Calls)
+// 8. ALPHA STUDIO VIEWMODEL (Character Evolution, Daily Boss, RPG Stats, & Sync)
 // ============================================================================
 class HabitTrackerViewModel : ViewModel() {
 
@@ -928,19 +1166,39 @@ class HabitTrackerViewModel : ViewModel() {
     val readingTheme = mutableStateOf(SanctuaryReadingTheme.WARM_SEPIA)
     val readingFontScale = mutableFloatStateOf(1.0f)
 
-    val userXp = mutableIntStateOf(420)
+    val userXp = mutableIntStateOf(460)
     val streakShields = mutableIntStateOf(3)
 
     val userLevel: Int get() = (userXp.intValue / 200) + 1
     val xpProgressInLevel: Float get() = (userXp.intValue % 200) / 200f
-    val userRankTitle: String
-        get() = when (userLevel) {
-            1, 2 -> "Initiate"
-            3, 4 -> "Builder"
-            5, 6, 7 -> "Habit Architect"
-            8, 9, 10 -> "High Performer"
-            else -> "Zenith Grandmaster"
-        }
+    val characterStage: AlphaCharacterStage get() = AlphaCharacterStage.forLevel(userLevel)
+    val userRankTitle: String get() = characterStage.title
+
+    // Dynamic RPG Stats Computed from Real User Activity
+    fun computeAlphaStats(): AlphaRpgStats {
+        val fitnessLogs = habits.filter { it.category.contains("Fitness", true) || it.category.contains("Health", true) }
+            .sumOf { it.logs.size }
+        val focusLogs = habits.filter { it.type == HabitType.FOCUS_TIMER || it.category.contains("Career", true) || it.category.contains("Work", true) }
+            .sumOf { it.logs.size } + todos.count { it.isCompleted } * 2
+        val maxStreak = habits.maxOfOrNull { it.bestStreak() } ?: 1
+        val knowledgeCount = (journals.size * 4) + (notes.size * 6)
+
+        val str = 25 + fitnessLogs * 2 + userLevel * 4
+        val foc = 25 + focusLogs * 2 + userLevel * 4
+        val wil = 25 + maxStreak * 3 + streakShields.intValue * 5 + userLevel * 4
+        val wis = 25 + knowledgeCount + userLevel * 4
+        val cp = (str + foc + wil + wis) * 12 + userXp.intValue
+        return AlphaRpgStats(str, foc, wil, wis, cp)
+    }
+
+    // Daily Procrastination Boss HP (0f..1f remaining HP)
+    fun dailyBossHpFraction(date: LocalDate = LocalDate.now()): Float {
+        val totalHabits = habits.size.coerceAtLeast(1)
+        val doneHabits = habits.count { it.isCompletedOn(date) }
+        val doneTodos = todos.count { it.isCompleted }.coerceAtMost(3)
+        val damageRatio = ((doneHabits.toFloat() + doneTodos * 0.35f) / totalHabits.toFloat()).coerceIn(0f, 1f)
+        return (1f - damageRatio).coerceIn(0f, 1f)
+    }
 
     val activeFocusTitle = mutableStateOf("Deep Focus Session")
     val activeFocusHabitId = mutableStateOf<String?>(null)
@@ -980,7 +1238,6 @@ class HabitTrackerViewModel : ViewModel() {
         }
     }
 
-    // Backward-compatible alias
     fun initializeIfNeeded(context: Context) = initializeOrRefreshFromDisk(context)
 
     fun persistState(context: Context): String {
@@ -1004,7 +1261,7 @@ class HabitTrackerViewModel : ViewModel() {
     fun restoreFromJsonString(jsonStr: String): Boolean {
         return try {
             val root = JSONObject(jsonStr)
-            userXp.intValue = root.optInt("xp", 420)
+            userXp.intValue = root.optInt("xp", 460)
             streakShields.intValue = root.optInt("streakShields", 3)
 
             habits.clear()
@@ -1141,15 +1398,25 @@ class HabitTrackerViewModel : ViewModel() {
         xpEarned: Int = 25
     ) {
         val oldLevel = userLevel
+        val oldStage = characterStage
         userXp.intValue += xpEarned
         val newLevel = userLevel
+        val newStage = characterStage
         val leveledUp = newLevel > oldLevel
+        val evolved = newStage != oldStage
+
         if (leveledUp) streakShields.intValue += 1
 
-        celebrationTitle.value = if (leveledUp) "🎉 LEVEL $newLevel UNLOCKED!" else title
-        celebrationSubtitle.value = if (leveledUp)
-            "Rank: $userRankTitle • +1 Streak Shield Earned!"
-        else subtitle
+        celebrationTitle.value = when {
+            evolved -> "⚡ ALPHA EVOLUTION: ${newStage.formName.uppercase()}!"
+            leveledUp -> "🎉 LEVEL $newLevel UNLOCKED!"
+            else -> title
+        }
+        celebrationSubtitle.value = when {
+            evolved -> "Equipped ${newStage.weaponOrAura} • +1 Streak Shield!"
+            leveledUp -> "Rank: $userRankTitle • Character Power Surged!"
+            else -> subtitle
+        }
         celebrationXpEarned.intValue = xpEarned
         showCelebration.value = true
 
@@ -1157,12 +1424,11 @@ class HabitTrackerViewModel : ViewModel() {
         persistState(context)
 
         viewModelScope.launch {
-            delay(3400)
+            delay(3300)
             showCelebration.value = false
         }
     }
 
-    // --- Focus Timer ---
     fun startFocusTimer(context: Context, title: String, minutes: Int, habitId: String? = null) {
         timerJob?.cancel()
         activeFocusTitle.value = title
@@ -1206,15 +1472,14 @@ class HabitTrackerViewModel : ViewModel() {
                 }
                 awardXpAndCelebrate(
                     context = context,
-                    title = "⏱️ Focus Session Complete!",
-                    subtitle = "${activeFocusTitle.value} finished with zero distractions",
+                    title = "⏱️ Alpha Focus Complete!",
+                    subtitle = "${activeFocusTitle.value} finished • +FOC Stat!",
                     xpEarned = 40
                 )
             }
         }
     }
 
-    // --- Habit Operations (New + Legacy Overloads) ---
     fun toggleOrStepHabit(context: Context, habit: Habit, date: LocalDate = selectedDate.value) {
         val index = habits.indexOfFirst { it.id == habit.id }
         if (index == -1) return
@@ -1247,8 +1512,8 @@ class HabitTrackerViewModel : ViewModel() {
             awardXpAndCelebrate(
                 context = context,
                 title = "${updated.emoji} ${updated.title} Crushed!",
-                subtitle = "🔥 ${updated.currentStreak()}-day streak • Keep building!",
-                xpEarned = 30
+                subtitle = "🔥 ${updated.currentStreak()}-day streak • Alpha Character Strengthened!",
+                xpEarned = 35
             )
         } else {
             persistState(context)
@@ -1273,7 +1538,7 @@ class HabitTrackerViewModel : ViewModel() {
                 context = context,
                 title = "${updated.emoji} Target Reached!",
                 subtitle = "$newAmount ${updated.unit} logged for ${updated.title}",
-                xpEarned = 30
+                xpEarned = 35
             )
         } else {
             persistState(context)
@@ -1339,7 +1604,6 @@ class HabitTrackerViewModel : ViewModel() {
         persistState(context)
     }
 
-    // Legacy overload
     fun createHabit(
         context: Context,
         title: String,
@@ -1360,7 +1624,6 @@ class HabitTrackerViewModel : ViewModel() {
         persistState(context)
     }
 
-    // --- To-Do Operations (New + Legacy Overloads) ---
     fun toggleTodo(context: Context, task: TodoTask) {
         val idx = todos.indexOfFirst { it.id == task.id }
         if (idx == -1) return
@@ -1370,7 +1633,7 @@ class HabitTrackerViewModel : ViewModel() {
             awardXpAndCelebrate(
                 context = context,
                 title = "✅ Mission Accomplished!",
-                subtitle = "\"${task.title}\" completed",
+                subtitle = "\"${task.title}\" completed • Boss Damaged!",
                 xpEarned = task.priority.xpReward
             )
         } else {
@@ -1451,7 +1714,6 @@ class HabitTrackerViewModel : ViewModel() {
         persistState(context)
     }
 
-    // Legacy overload
     fun addTodoTask(
         context: Context,
         title: String,
@@ -1469,7 +1731,6 @@ class HabitTrackerViewModel : ViewModel() {
         persistState(context)
     }
 
-    // --- Journal Operations (New + Legacy Overloads) ---
     fun saveOrUpdateJournalEntry(
         context: Context,
         existingId: String?,
@@ -1544,12 +1805,11 @@ class HabitTrackerViewModel : ViewModel() {
         awardXpAndCelebrate(
             context = context,
             title = "📓 Sanctuary Reflection Saved!",
-            subtitle = "Self-reflection compounds into wisdom",
+            subtitle = "+WIS Stat • Self-awareness compounds into wisdom",
             xpEarned = 35
         )
     }
 
-    // Legacy overload
     fun addJournalEntry(
         context: Context,
         title: String,
@@ -1569,7 +1829,6 @@ class HabitTrackerViewModel : ViewModel() {
         persistState(context)
     }
 
-    // --- Notebook Vault Operations (New + Legacy Overloads) ---
     fun saveOrUpdateNotebookEntry(
         context: Context,
         existingId: String?,
@@ -1587,12 +1846,11 @@ class HabitTrackerViewModel : ViewModel() {
         awardXpAndCelebrate(
             context = context,
             title = "🧠 Saved to Knowledge Vault!",
-            subtitle = "\"${entry.title}\" indexed in your Second Brain",
-            xpEarned = 30
+            subtitle = "+WIS Stat • \"${entry.title}\" indexed in your Second Brain",
+            xpEarned = 35
         )
     }
 
-    // Legacy overload
     fun addNotebookEntry(context: Context, entry: NotebookEntry) =
         saveOrUpdateNotebookEntry(context, null, entry)
 
