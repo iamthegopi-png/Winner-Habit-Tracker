@@ -86,7 +86,6 @@ class MainActivity : ComponentActivity() {
 fun ZenithStudioApp(vm: HabitTrackerViewModel = viewModel()) {
     val context = LocalContext.current
 
-    // Request Notification Permission on Android 13+
     val notifPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { }
@@ -201,7 +200,7 @@ fun ZenithStudioApp(vm: HabitTrackerViewModel = viewModel()) {
                             }
                         )
                         2 -> StudioReflectionJournalSection(vm = vm)
-                        3 -> StudioSecondBrainNotebookSection(vm = vm)
+                        else -> StudioSecondBrainNotebookSection(vm = vm)
                     }
                 }
             }
@@ -273,13 +272,11 @@ fun ZenithBrandLogoIcon(modifier: Modifier = Modifier) {
     ) {
         val w = size.width
         val h = size.height
-        // Glowing outer halo
         drawCircle(
             brush = Brush.sweepGradient(listOf(AppColors.MintGlow, AppColors.CyberCyan, AppColors.ElectricViolet, AppColors.MintGlow)),
             radius = w * 0.34f,
             style = Stroke(width = 2.5.dp.toPx())
         )
-        // Zenith Crystal Diamond Path
         val crystalPath = Path().apply {
             moveTo(w * 0.5f, h * 0.18f)
             lineTo(w * 0.76f, h * 0.48f)
@@ -291,7 +288,6 @@ fun ZenithBrandLogoIcon(modifier: Modifier = Modifier) {
             path = crystalPath,
             color = AppColors.MintGlow.copy(alpha = 0.25f)
         )
-        // Precision Checkmark Core
         val checkPath = Path().apply {
             moveTo(w * 0.36f, h * 0.52f)
             lineTo(w * 0.47f, h * 0.63f)
@@ -386,7 +382,7 @@ fun ZenithStudioHeader(
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             HeaderActionButton(Icons.Default.Timer, AppColors.CyberCyan, onOpenTimer)
-            HeaderActionButton(Icons.Default.Insights, AppColors.MintGlow, onOpenAnalytics)
+            HeaderActionButton(Icons.Default.ShowChart, AppColors.MintGlow, onOpenAnalytics)
             HeaderActionButton(
                 if (vm.connectedGoogleEmail.value != null) Icons.Default.CloudDone else Icons.Default.CloudUpload,
                 if (vm.connectedGoogleEmail.value != null) AppColors.MintGlow else AppColors.ElectricViolet,
@@ -435,7 +431,7 @@ fun ActiveFocusTimerBanner(vm: HabitTrackerViewModel, onExpand: () -> Unit) {
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Bolt, null, tint = AppColors.CyberCyan)
+                Icon(Icons.Default.Timer, null, tint = AppColors.CyberCyan)
                 Spacer(Modifier.width(8.dp))
                 Column {
                     Text(vm.activeFocusTitle.value, color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
@@ -473,10 +469,10 @@ fun StudioBottomDock(currentTab: Int, onSelectTab: (Int) -> Unit, onQuickAction:
             verticalAlignment = Alignment.CenterVertically
         ) {
             val items = listOf(
-                Triple(0, "Habits", Icons.Default.AutoAwesomeMosaic),
-                Triple(1, "Tasks", Icons.Default.Checklist),
-                Triple(2, "Journal", Icons.Default.AutoStories),
-                Triple(3, "Vault", Icons.Default.Psychology)
+                Triple(0, "Habits", Icons.Default.GridOn),
+                Triple(1, "Tasks", Icons.Default.CheckCircle),
+                Triple(2, "Journal", Icons.Default.Edit),
+                Triple(3, "Vault", Icons.Default.Star)
             )
 
             items.forEach { (index, title, icon) ->
@@ -599,7 +595,7 @@ fun StudioHabitTrackerSection(
                         vm.habitViewMode.value = when (vm.habitViewMode.value) {
                             HabitViewMode.STUDIO_CARDS -> HabitViewMode.HEATMAP_GRID
                             HabitViewMode.HEATMAP_GRID -> HabitViewMode.COMPACT_WEEKLY
-                            HabitViewMode.COMPACT_WEEKLY -> HabitViewMode.STUDIO_CARDS
+                            else -> HabitViewMode.STUDIO_CARDS
                         }
                     },
                     modifier = Modifier
@@ -611,7 +607,7 @@ fun StudioHabitTrackerSection(
                         imageVector = when (vm.habitViewMode.value) {
                             HabitViewMode.STUDIO_CARDS -> Icons.Default.ViewAgenda
                             HabitViewMode.HEATMAP_GRID -> Icons.Default.GridOn
-                            HabitViewMode.COMPACT_WEEKLY -> Icons.Default.ViewWeek
+                            else -> Icons.Default.ViewWeek
                         },
                         contentDescription = null,
                         tint = AppColors.ElectricViolet,
@@ -832,7 +828,7 @@ fun StudioHabitCard(
                             Icon(Icons.Default.Remove, "Decrease", tint = AppColors.TextSecondary, modifier = Modifier.size(16.dp))
                         }
                         IconButton(onClick = onOpenCustomValue, modifier = Modifier.size(30.dp)) {
-                            Icon(Icons.Default.Dialpad, "Set Exact Value", tint = habit.accentColor, modifier = Modifier.size(15.dp))
+                            Icon(Icons.Default.MoreVert, "Set Exact Value", tint = habit.accentColor, modifier = Modifier.size(15.dp))
                         }
                     }
                     IconButton(onClick = onEdit, modifier = Modifier.size(30.dp)) {
@@ -859,7 +855,7 @@ fun StudioHabitCard(
                         )
                     }
                     IconButton(onClick = onDelete, modifier = Modifier.size(26.dp)) {
-                        Icon(Icons.Default.DeleteOutline, "Delete", tint = AppColors.TextMuted, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Delete, "Delete", tint = AppColors.TextMuted, modifier = Modifier.size(16.dp))
                     }
                 }
             }
@@ -877,8 +873,8 @@ fun StudioHabitCard(
             Spacer(Modifier.height(12.dp))
 
             when (viewMode) {
-                HabitViewMode.STUDIO_CARDS, HabitViewMode.COMPACT_WEEKLY -> StudioSevenDayInteractiveStrip(habit, onToggleAnyDate)
-                HabitViewMode.HEATMAP_GRID -> StudioSixteenWeekHeatmap(habit)
+                HabitViewMode.HEATMAP_GRID, HabitViewMode.GRID_VIEW -> StudioSixteenWeekHeatmap(habit)
+                else -> StudioSevenDayInteractiveStrip(habit, onToggleAnyDate)
             }
         }
     }
@@ -981,7 +977,7 @@ fun StudioTodoMatrixSection(vm: HabitTrackerViewModel, onLaunchTaskTimer: (TodoT
                 colors = ButtonDefaults.buttonColors(containerColor = AppColors.MintGlow),
                 shape = RoundedCornerShape(14.dp)
             ) {
-                Icon(Icons.Default.AddTask, null, tint = Color.Black)
+                Icon(Icons.Default.Add, null, tint = Color.Black)
                 Spacer(Modifier.width(6.dp))
                 Text("New Task", color = Color.Black, fontWeight = FontWeight.Bold)
             }
@@ -1089,7 +1085,7 @@ fun StudioTodoCard(
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onStartFocus, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Default.PlayCircleOutline, "Focus", tint = AppColors.CyberCyan, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.PlayArrow, "Focus", tint = AppColors.CyberCyan, modifier = Modifier.size(18.dp))
                     }
                     IconButton(onClick = onEdit, modifier = Modifier.size(30.dp)) {
                         Icon(Icons.Default.Edit, "Edit", tint = AppColors.TextSecondary, modifier = Modifier.size(16.dp))
@@ -1161,13 +1157,12 @@ fun StudioReflectionJournalSection(vm: HabitTrackerViewModel) {
                 colors = ButtonDefaults.buttonColors(containerColor = theme.accent),
                 shape = RoundedCornerShape(14.dp)
             ) {
-                Icon(Icons.Default.EditNote, null, tint = Color.Black)
+                Icon(Icons.Default.Edit, null, tint = Color.Black)
                 Spacer(Modifier.width(6.dp))
                 Text("Write", color = Color.Black, fontWeight = FontWeight.Bold)
             }
         }
 
-        // Sanctuary Comfort Theme & Font Size Bar
         SanctuaryComfortBar(
             currentTheme = theme,
             fontScale = fontScale,
@@ -1250,7 +1245,6 @@ fun SanctuaryComfortBar(
 
         Spacer(Modifier.width(8.dp))
 
-        // Font Scale A- / A+ Buttons
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
@@ -1314,7 +1308,7 @@ fun StudioJournalEntryCard(
                         Icon(Icons.Default.Edit, "Edit", tint = theme.textSecondary, modifier = Modifier.size(16.dp))
                     }
                     IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Default.DeleteOutline, "Delete", tint = theme.textSecondary, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Delete, "Delete", tint = theme.textSecondary, modifier = Modifier.size(18.dp))
                     }
                 }
             }
@@ -1427,7 +1421,7 @@ fun StudioSecondBrainNotebookSection(vm: HabitTrackerViewModel) {
                 colors = ButtonDefaults.buttonColors(containerColor = theme.accent),
                 shape = RoundedCornerShape(14.dp)
             ) {
-                Icon(Icons.Default.LibraryAdd, null, tint = Color.Black)
+                Icon(Icons.Default.Add, null, tint = Color.Black)
                 Spacer(Modifier.width(6.dp))
                 Text("New Note", color = Color.Black, fontWeight = FontWeight.Bold)
             }
@@ -1536,16 +1530,16 @@ fun StudioNotebookCard(
 
                 IconButton(onClick = onTogglePin) {
                     Icon(
-                        imageVector = if (note.isPinned) Icons.Default.PushPin else Icons.Default.PinInvoke,
-                        contentDescription = null,
-                        tint = if (note.isPinned) AppColors.SolarGold else theme.textSecondary
+                        imageVector = Icons.Default.PushPin,
+                        contentDescription = "Pin",
+                        tint = if (note.isPinned) AppColors.SolarGold else theme.textSecondary.copy(alpha = 0.4f)
                     )
                 }
                 IconButton(onClick = onEdit, modifier = Modifier.size(30.dp)) {
                     Icon(Icons.Default.Edit, "Edit", tint = theme.textSecondary, modifier = Modifier.size(16.dp))
                 }
                 IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
-                    Icon(Icons.Default.DeleteOutline, null, tint = theme.textSecondary, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.Delete, "Delete", tint = theme.textSecondary, modifier = Modifier.size(18.dp))
                 }
             }
 
@@ -1647,7 +1641,6 @@ fun StudioCreateOrEditHabitDialog(
                 }
                 OutlinedTextField(value = cue, onValueChange = { cue = it }, label = { Text("Habit Stacking Cue (Optional)") }, modifier = Modifier.fillMaxWidth())
 
-                // Native Clock Picker + Test Motivational Sound Button
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     OutlinedButton(
                         onClick = {
@@ -1664,7 +1657,7 @@ fun StudioCreateOrEditHabitDialog(
                         modifier = Modifier.weight(1f),
                         border = BorderStroke(1.dp, AppColors.CyberCyan)
                     ) {
-                        Icon(Icons.Default.NotificationsActive, null, tint = AppColors.CyberCyan, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Notifications, null, tint = AppColors.CyberCyan, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(6.dp))
                         Text(if (reminder.isBlank()) "Set Reminder Time" else "🔔 $reminder", color = AppColors.CyberCyan, fontSize = 12.sp)
                     }
@@ -1839,7 +1832,7 @@ fun StudioCreateOrEditJournalDialog(
                     modifier = Modifier.fillMaxWidth(),
                     border = BorderStroke(1.dp, AppColors.ElectricViolet)
                 ) {
-                    Icon(Icons.Default.AddPhotoAlternate, null, tint = AppColors.ElectricViolet)
+                    Icon(Icons.Default.Add, null, tint = AppColors.ElectricViolet)
                     Spacer(Modifier.width(8.dp))
                     Text("Attach Memory Photos (${photos.size} attached)", color = AppColors.ElectricViolet)
                 }
@@ -2136,7 +2129,6 @@ fun StudioFullScreenCelebrationOverlay(
     rank: String,
     onDismiss: () -> Unit
 ) {
-    // 65 particles for silky 60fps animation with minimal battery/GPU draw
     val particles = remember {
         List(65) {
             val angle = Random.nextDouble(0.0, 2.0 * Math.PI)
