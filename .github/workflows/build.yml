@@ -21,7 +21,7 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Auto-Configure Studio Project, Icons & Widgets
+      - name: Auto-Configure Alpha Studio Project, Icons & Dual Widgets
         run: |
           mkdir -p app/src/main/java/com/vibrant/habittracker
           mkdir -p app/src/main/res/drawable
@@ -30,7 +30,6 @@ jobs:
           mkdir -p app/src/main/res/xml
           mkdir -p app/src/main/res/values
 
-          # Pick the most recently committed HabitTrackerCore.kt and MainActivity.kt
           LATEST_CORE=$(git log --format="" --name-only | grep "HabitTrackerCore.kt" | head -n 1)
           if [ -z "$LATEST_CORE" ]; then
             LATEST_CORE=$(find . -name "HabitTrackerCore.kt" | head -n 1)
@@ -47,7 +46,6 @@ jobs:
             cp "$LATEST_MAIN" app/src/main/java/com/vibrant/habittracker/MainActivity.kt
           fi
 
-          # Remove any stray duplicate .kt files in the root directory
           find . -maxdepth 2 -name "HabitTrackerCore.kt" -delete || true
           find . -maxdepth 2 -name "MainActivity.kt" -delete || true
 
@@ -75,7 +73,7 @@ jobs:
                   mavenCentral()
               }
           }
-          rootProject.name = "WinnerHabitTracker"
+          rootProject.name = "AlphaHabitStudio"
           include(":app")
           EOF
 
@@ -104,8 +102,8 @@ jobs:
                   applicationId = "com.vibrant.habittracker"
                   minSdk = 26
                   targetSdk = 35
-                  versionCode = 3
-                  versionName = "3.0.0-Studio"
+                  versionCode = 4
+                  versionName = "4.0.0-Alpha"
               }
 
               buildFeatures {
@@ -137,7 +135,7 @@ jobs:
           }
           EOF
 
-          # 5. Create Custom Adaptive App Icon Vectors (FIXED strokeLineCap & strokeLineJoin)
+          # 5. Create High-Energy ALPHA (α) Launcher Icon Vectors
           cat << 'EOF' > app/src/main/res/drawable/ic_launcher_background.xml
           <?xml version="1.0" encoding="utf-8"?>
           <vector xmlns:android="http://schemas.android.com/apk/res/android"
@@ -146,11 +144,14 @@ jobs:
               android:viewportWidth="108"
               android:viewportHeight="108">
               <path
-                  android:fillColor="#FF070B14"
+                  android:fillColor="#FF07090F"
                   android:pathData="M0,0h108v108h-108z"/>
               <path
-                  android:fillColor="#FF0F192A"
-                  android:pathData="M0,0 L108,0 L108,108 Z"/>
+                  android:fillColor="#FF1A0B1E"
+                  android:pathData="M0,108 L108,0 L108,108 Z"/>
+              <path
+                  android:fillColor="#22F43F5E"
+                  android:pathData="M54,10 L94,32 L94,76 L54,98 L14,76 L14,32 Z"/>
           </vector>
           EOF
 
@@ -161,21 +162,24 @@ jobs:
               android:height="108dp"
               android:viewportWidth="108"
               android:viewportHeight="108">
+              <!-- Outer High-Voltage Shield Hexagon -->
               <path
-                  android:pathData="M54,24 A30,30 0 1,1 53.9,24 Z"
-                  android:strokeWidth="4.5"
-                  android:strokeColor="#FF06B6D4"
-                  android:fillColor="#00000000"/>
+                  android:pathData="M54,18 L85,36 L85,72 L54,90 L23,72 L23,36 Z"
+                  android:strokeWidth="3.5"
+                  android:strokeColor="#FFF97316"
+                  android:fillColor="#1AF43F5E"/>
+              <!-- Bold Greek/Apex ALPHA (A / α) Crest -->
               <path
-                  android:pathData="M54,30 L68,50 L54,78 L40,50 Z"
-                  android:fillColor="#3334D399"/>
+                  android:pathData="M54,26 L76,78 L65,78 L54,50 L43,78 L32,78 Z"
+                  android:fillColor="#FFFBBF24"/>
+              <!-- Lightning Crossbar Slash -->
               <path
-                  android:pathData="M43,54 L51,62 L67,44"
-                  android:strokeWidth="6"
-                  android:strokeLineCap="round"
-                  android:strokeLineJoin="round"
-                  android:strokeColor="#FF34D399"
-                  android:fillColor="#00000000"/>
+                  android:pathData="M34,62 L76,52 L60,68 L34,68 Z"
+                  android:fillColor="#FF34D399"/>
+              <!-- Top Apex Crown Spark -->
+              <path
+                  android:pathData="M54,19 L59,27 L49,27 Z"
+                  android:fillColor="#FF06B6D4"/>
           </vector>
           EOF
 
@@ -195,12 +199,12 @@ jobs:
           </adaptive-icon>
           EOF
 
-          # 6. Create Home Screen Widget Resources
+          # 6. Create Shared Widget Drawables
           cat << 'EOF' > app/src/main/res/drawable/widget_bg.xml
           <?xml version="1.0" encoding="utf-8"?>
           <shape xmlns:android="http://schemas.android.com/apk/res/android"
               android:shape="rectangle">
-              <solid android:color="#F20F141E"/>
+              <solid android:color="#F40B0F19"/>
               <corners android:radius="22dp"/>
               <stroke android:width="1.5dp" android:color="#FF28354A"/>
           </shape>
@@ -225,6 +229,7 @@ jobs:
           </shape>
           EOF
 
+          # 7. Widget 1: Habits Widget Layout & Info
           cat << 'EOF' > app/src/main/res/layout/habit_widget_layout.xml
           <?xml version="1.0" encoding="utf-8"?>
           <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -240,17 +245,15 @@ jobs:
                   android:layout_height="wrap_content"
                   android:gravity="center_vertical"
                   android:orientation="horizontal">
-
                   <TextView
                       android:id="@+id/widget_header_title"
                       android:layout_width="0dp"
                       android:layout_height="wrap_content"
                       android:layout_weight="1"
-                      android:text="💎 Zenith Habit Studio"
-                      android:textColor="#FFF8FAFC"
-                      android:textSize="14sp"
+                      android:text="⚡ ALPHA HABITS"
+                      android:textColor="#FFFBBF24"
+                      android:textSize="13sp"
                       android:textStyle="bold" />
-
                   <TextView
                       android:id="@+id/widget_header_score"
                       android:layout_width="wrap_content"
@@ -265,8 +268,8 @@ jobs:
                   android:id="@+id/widget_subtitle"
                   android:layout_width="match_parent"
                   android:layout_height="wrap_content"
-                  android:paddingBottom="8dp"
-                  android:text="Tap ✓ to complete directly from home screen"
+                  android:paddingBottom="6dp"
+                  android:text="Tap button to log habit &amp; power up Alpha"
                   android:textColor="#FF94A3B8"
                   android:textSize="10sp" />
 
@@ -276,8 +279,8 @@ jobs:
                   android:layout_height="wrap_content"
                   android:gravity="center_vertical"
                   android:orientation="horizontal"
-                  android:paddingTop="4dp"
-                  android:paddingBottom="4dp">
+                  android:paddingTop="3dp"
+                  android:paddingBottom="3dp">
                   <TextView
                       android:id="@+id/widget_title_1"
                       android:layout_width="0dp"
@@ -285,16 +288,16 @@ jobs:
                       android:layout_weight="1"
                       android:singleLine="true"
                       android:textColor="#FFF8FAFC"
-                      android:textSize="13sp" />
+                      android:textSize="12sp" />
                   <TextView
                       android:id="@+id/widget_btn_1"
                       android:layout_width="34dp"
-                      android:layout_height="30dp"
+                      android:layout_height="28dp"
                       android:background="@drawable/widget_btn_pending"
                       android:gravity="center"
                       android:text="✓"
                       android:textColor="#FF34D399"
-                      android:textSize="14sp"
+                      android:textSize="13sp"
                       android:textStyle="bold" />
               </LinearLayout>
 
@@ -304,8 +307,8 @@ jobs:
                   android:layout_height="wrap_content"
                   android:gravity="center_vertical"
                   android:orientation="horizontal"
-                  android:paddingTop="4dp"
-                  android:paddingBottom="4dp">
+                  android:paddingTop="3dp"
+                  android:paddingBottom="3dp">
                   <TextView
                       android:id="@+id/widget_title_2"
                       android:layout_width="0dp"
@@ -313,16 +316,16 @@ jobs:
                       android:layout_weight="1"
                       android:singleLine="true"
                       android:textColor="#FFF8FAFC"
-                      android:textSize="13sp" />
+                      android:textSize="12sp" />
                   <TextView
                       android:id="@+id/widget_btn_2"
                       android:layout_width="34dp"
-                      android:layout_height="30dp"
+                      android:layout_height="28dp"
                       android:background="@drawable/widget_btn_pending"
                       android:gravity="center"
                       android:text="✓"
                       android:textColor="#FF34D399"
-                      android:textSize="14sp"
+                      android:textSize="13sp"
                       android:textStyle="bold" />
               </LinearLayout>
 
@@ -332,8 +335,8 @@ jobs:
                   android:layout_height="wrap_content"
                   android:gravity="center_vertical"
                   android:orientation="horizontal"
-                  android:paddingTop="4dp"
-                  android:paddingBottom="4dp">
+                  android:paddingTop="3dp"
+                  android:paddingBottom="3dp">
                   <TextView
                       android:id="@+id/widget_title_3"
                       android:layout_width="0dp"
@@ -341,16 +344,16 @@ jobs:
                       android:layout_weight="1"
                       android:singleLine="true"
                       android:textColor="#FFF8FAFC"
-                      android:textSize="13sp" />
+                      android:textSize="12sp" />
                   <TextView
                       android:id="@+id/widget_btn_3"
                       android:layout_width="34dp"
-                      android:layout_height="30dp"
+                      android:layout_height="28dp"
                       android:background="@drawable/widget_btn_pending"
                       android:gravity="center"
                       android:text="✓"
                       android:textColor="#FF34D399"
-                      android:textSize="14sp"
+                      android:textSize="13sp"
                       android:textStyle="bold" />
               </LinearLayout>
 
@@ -360,8 +363,8 @@ jobs:
                   android:layout_height="wrap_content"
                   android:gravity="center_vertical"
                   android:orientation="horizontal"
-                  android:paddingTop="4dp"
-                  android:paddingBottom="4dp">
+                  android:paddingTop="3dp"
+                  android:paddingBottom="3dp">
                   <TextView
                       android:id="@+id/widget_title_4"
                       android:layout_width="0dp"
@@ -369,16 +372,16 @@ jobs:
                       android:layout_weight="1"
                       android:singleLine="true"
                       android:textColor="#FFF8FAFC"
-                      android:textSize="13sp" />
+                      android:textSize="12sp" />
                   <TextView
                       android:id="@+id/widget_btn_4"
                       android:layout_width="34dp"
-                      android:layout_height="30dp"
+                      android:layout_height="28dp"
                       android:background="@drawable/widget_btn_pending"
                       android:gravity="center"
                       android:text="✓"
                       android:textColor="#FF34D399"
-                      android:textSize="14sp"
+                      android:textSize="13sp"
                       android:textStyle="bold" />
               </LinearLayout>
           </LinearLayout>
@@ -397,7 +400,178 @@ jobs:
               android:widgetCategory="home_screen" />
           EOF
 
-          # 7. Create AndroidManifest.xml
+          # 8. Widget 2: Tasks Matrix Widget Layout & Info
+          cat << 'EOF' > app/src/main/res/layout/task_widget_layout.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:id="@+id/task_widget_root"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent"
+              android:background="@drawable/widget_bg"
+              android:orientation="vertical"
+              android:padding="14dp">
+
+              <LinearLayout
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:gravity="center_vertical"
+                  android:orientation="horizontal">
+                  <TextView
+                      android:id="@+id/task_widget_header_title"
+                      android:layout_width="0dp"
+                      android:layout_height="wrap_content"
+                      android:layout_weight="1"
+                      android:text="🎯 ALPHA TASKS MATRIX"
+                      android:textColor="#FF06B6D4"
+                      android:textSize="13sp"
+                      android:textStyle="bold" />
+                  <TextView
+                      android:id="@+id/task_widget_header_score"
+                      android:layout_width="wrap_content"
+                      android:layout_height="wrap_content"
+                      android:text="0 Active"
+                      android:textColor="#FFF97316"
+                      android:textSize="12sp"
+                      android:textStyle="bold" />
+              </LinearLayout>
+
+              <TextView
+                  android:id="@+id/task_widget_subtitle"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:paddingBottom="6dp"
+                  android:text="Tap ✓ to complete mission directly from home screen"
+                  android:textColor="#FF94A3B8"
+                  android:textSize="10sp" />
+
+              <LinearLayout
+                  android:id="@+id/task_widget_row_1"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:gravity="center_vertical"
+                  android:orientation="horizontal"
+                  android:paddingTop="3dp"
+                  android:paddingBottom="3dp">
+                  <TextView
+                      android:id="@+id/task_widget_title_1"
+                      android:layout_width="0dp"
+                      android:layout_height="wrap_content"
+                      android:layout_weight="1"
+                      android:singleLine="true"
+                      android:textColor="#FFF8FAFC"
+                      android:textSize="12sp" />
+                  <TextView
+                      android:id="@+id/task_widget_btn_1"
+                      android:layout_width="34dp"
+                      android:layout_height="28dp"
+                      android:background="@drawable/widget_btn_pending"
+                      android:gravity="center"
+                      android:text="✓"
+                      android:textColor="#FF34D399"
+                      android:textSize="13sp"
+                      android:textStyle="bold" />
+              </LinearLayout>
+
+              <LinearLayout
+                  android:id="@+id/task_widget_row_2"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:gravity="center_vertical"
+                  android:orientation="horizontal"
+                  android:paddingTop="3dp"
+                  android:paddingBottom="3dp">
+                  <TextView
+                      android:id="@+id/task_widget_title_2"
+                      android:layout_width="0dp"
+                      android:layout_height="wrap_content"
+                      android:layout_weight="1"
+                      android:singleLine="true"
+                      android:textColor="#FFF8FAFC"
+                      android:textSize="12sp" />
+                  <TextView
+                      android:id="@+id/task_widget_btn_2"
+                      android:layout_width="34dp"
+                      android:layout_height="28dp"
+                      android:background="@drawable/widget_btn_pending"
+                      android:gravity="center"
+                      android:text="✓"
+                      android:textColor="#FF34D399"
+                      android:textSize="13sp"
+                      android:textStyle="bold" />
+              </LinearLayout>
+
+              <LinearLayout
+                  android:id="@+id/task_widget_row_3"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:gravity="center_vertical"
+                  android:orientation="horizontal"
+                  android:paddingTop="3dp"
+                  android:paddingBottom="3dp">
+                  <TextView
+                      android:id="@+id/task_widget_title_3"
+                      android:layout_width="0dp"
+                      android:layout_height="wrap_content"
+                      android:layout_weight="1"
+                      android:singleLine="true"
+                      android:textColor="#FFF8FAFC"
+                      android:textSize="12sp" />
+                  <TextView
+                      android:id="@+id/task_widget_btn_3"
+                      android:layout_width="34dp"
+                      android:layout_height="28dp"
+                      android:background="@drawable/widget_btn_pending"
+                      android:gravity="center"
+                      android:text="✓"
+                      android:textColor="#FF34D399"
+                      android:textSize="13sp"
+                      android:textStyle="bold" />
+              </LinearLayout>
+
+              <LinearLayout
+                  android:id="@+id/task_widget_row_4"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:gravity="center_vertical"
+                  android:orientation="horizontal"
+                  android:paddingTop="3dp"
+                  android:paddingBottom="3dp">
+                  <TextView
+                      android:id="@+id/task_widget_title_4"
+                      android:layout_width="0dp"
+                      android:layout_height="wrap_content"
+                      android:layout_weight="1"
+                      android:singleLine="true"
+                      android:textColor="#FFF8FAFC"
+                      android:textSize="12sp" />
+                  <TextView
+                      android:id="@+id/task_widget_btn_4"
+                      android:layout_width="34dp"
+                      android:layout_height="28dp"
+                      android:background="@drawable/widget_btn_pending"
+                      android:gravity="center"
+                      android:text="✓"
+                      android:textColor="#FF34D399"
+                      android:textSize="13sp"
+                      android:textStyle="bold" />
+              </LinearLayout>
+          </LinearLayout>
+          EOF
+
+          cat << 'EOF' > app/src/main/res/xml/task_widget_info.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+              android:initialLayout="@layout/task_widget_layout"
+              android:minWidth="250dp"
+              android:minHeight="140dp"
+              android:targetCellWidth="4"
+              android:targetCellHeight="2"
+              android:resizeMode="horizontal|vertical"
+              android:updatePeriodMillis="1800000"
+              android:widgetCategory="home_screen" />
+          EOF
+
+          # 9. Create AndroidManifest.xml with Both Widgets & Alarm Receiver
           cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -413,7 +587,7 @@ jobs:
                   android:allowBackup="true"
                   android:icon="@mipmap/ic_launcher"
                   android:roundIcon="@mipmap/ic_launcher_round"
-                  android:label="Zenith Habit Studio"
+                  android:label="Alpha Habit Studio"
                   android:supportsRtl="true"
                   android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
 
@@ -434,7 +608,7 @@ jobs:
                   <receiver
                       android:name=".HabitWidgetProvider"
                       android:exported="true"
-                      android:label="Zenith Habit Checklist">
+                      android:label="⚡ Alpha Habits Widget">
                       <intent-filter>
                           <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
                           <action android:name="com.vibrant.habittracker.ACTION_WIDGET_TOGGLE_HABIT" />
@@ -442,6 +616,19 @@ jobs:
                       <meta-data
                           android:name="android.appwidget.provider"
                           android:resource="@xml/habit_widget_info" />
+                  </receiver>
+
+                  <receiver
+                      android:name=".TaskWidgetProvider"
+                      android:exported="true"
+                      android:label="🎯 Alpha Tasks Widget">
+                      <intent-filter>
+                          <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                          <action android:name="com.vibrant.habittracker.ACTION_WIDGET_TOGGLE_TASK" />
+                      </intent-filter>
+                      <meta-data
+                          android:name="android.appwidget.provider"
+                          android:resource="@xml/task_widget_info" />
                   </receiver>
               </application>
           </manifest>
