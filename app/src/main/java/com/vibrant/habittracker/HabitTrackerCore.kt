@@ -13,11 +13,15 @@ import android.content.Intent
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
+import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.provider.OpenableColumns
 import android.view.View
 import android.widget.RemoteViews
 import android.widget.Toast
@@ -138,7 +142,7 @@ enum class SanctuaryReadingTheme(
 }
 
 // ============================================================================
-// 2. SUPERHERO EVOLUTION & MOTIVATION ENGINE (Upgrades with XP, Drains on Wasted Hours)
+// 2. SUPERHERO EVOLUTION & MOTIVATION ENGINE
 // ============================================================================
 enum class CharacterStage(
     val stageNumber: Int,
@@ -240,7 +244,7 @@ data class AlphaCharacterStats(
 )
 
 // ============================================================================
-// 3. HOURLY PRODUCTIVITY LEDGER MODELS (New 5th Section: Day Audit)
+// 3. HOURLY PRODUCTIVITY LEDGER MODELS
 // ============================================================================
 enum class HourProductivityStatus(
     val label: String,
@@ -262,7 +266,7 @@ enum class HourProductivityStatus(
 data class HourlyLogItem(
     val id: String = UUID.randomUUID().toString(),
     val date: String = LocalDate.now().toString(),
-    val hour24: Int, // 0..23
+    val hour24: Int,
     val activityNote: String,
     val status: HourProductivityStatus
 ) {
@@ -275,7 +279,7 @@ data class HourlyLogItem(
 }
 
 // ============================================================================
-// 4. HABIT, AUTO-RENEW TASK, JOURNAL & VAULT MODELS
+// 4. HABIT & TASK MODELS (NOW WITH CUSTOM IMPORTED SOUND URI)
 // ============================================================================
 enum class HabitType(val label: String) {
     CHECKLIST("Checklist"),
@@ -314,6 +318,7 @@ data class Habit(
     val unit: String = "times",
     val stepSize: Float = 1f,
     val reminderTime: String = "",
+    val customSoundUri: String = "", // Custom imported phone audio URI
     val logs: Map<String, Float> = emptyMap(),
     val createdAt: String = LocalDate.now().toString()
 ) {
@@ -388,10 +393,11 @@ data class TodoTask(
     val date: String = LocalDate.now().toString(),
     val timeBlock: String = "Anytime",
     val reminderTime: String = "",
+    val customSoundUri: String = "", // Custom imported phone audio URI
     val isCompleted: Boolean = false,
-    val isRecurring: Boolean = false,       // Auto-Renew Daily flag
-    val lastCompletedDate: String = "",     // Used to auto-reset on the next day
-    val renewalStreak: Int = 0,             // Counts consecutive days completed
+    val isRecurring: Boolean = false,
+    val lastCompletedDate: String = "",
+    val renewalStreak: Int = 0,
     val estimatedMinutes: Int = 25,
     val subTasks: List<SubTask> = emptyList(),
     val notes: String = ""
@@ -445,9 +451,101 @@ data class NotebookEntry(
 )
 
 // ============================================================================
-// 5. SYNTHESIZED SOUND ENGINE (Celebration, Motivational Chime & Penalty Buzz)
+// 5. CUSTOM IMPORTED AUDIO & SYNTHESIZED SOUND ENGINE
 // ============================================================================
 object CelebrationSoundEngine {
+
+    private var activeMediaPlayer: MediaPlayer? = null
+
+    /**
+     * Resolves a human-readable file name (e.g. "motivation_theme.mp3") from a phone audio URI.
+     */
+    fun getAudioFileName(context: Context, uriString: String): String {
+        if (uriString.isBlank()) return "Default Studio Sound"
+        return try {
+            val uri = Uri.parse(uriString)
+            var name = "Custom Audio"
+            context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (nameIndex != -1 && cursor.moveToFirst()) {
+                    name = cursor.getString(nameIndex) ?: "Custom Audio"
+                }
+            }
+            name
+        } catch (_: Exception) {
+            "Custom Audio File"
+        }
+    }
+
+    /**
+     * Plays the user's custom imported phone audio file if set; otherwise falls back
+     * to the synthesized celebration or motivational sound.
+     * Automatically stops after 10 seconds to save battery if a long song was picked.
+     */
+    fun playCustomOrDefaultSound(
+        context: Context,
+        customSoundUri: String,
+        isReminder: Boolean = false,
+        isLevelUp: Boolean = false
+    ) {
+        if (customSoundUri.isNotBlank()) {
+            try {
+                stopActiveCustomSound()
+                triggerHaptics(context, isLevelUp = true)
+                val uri = Uri.parse(customSoundUri)
+                val mp = MediaPlayer().apply {
+                    setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(if (isReminder) AudioAttributes.USAGE_NOTIFICATION else AudioAttributes.USAGE_MEDIA)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .build()
+                    )
+                    setDataSource(context, uri)
+                    prepare()
+                    start()
+                    setOnCompletionListener { player ->
+                        try {
+                            player.release()
+                        } catch (_: Exception) {
+                        }
+                    }
+                }
+                activeMediaPlayer = mp
+
+                // Battery safeguard: automatically fade/stop after 10 seconds if user picked a full song
+                Handler(Looper.getMainLooper()).postDelayed({
+                    try {
+                        if (mp.isPlaying) {
+                            mp.stop()
+                        }
+                        mp.release()
+                    } catch (_: Exception) {
+                    }
+                }, 10_000L)
+                return
+            } catch (_: Exception) {
+                // Fall back to synthesized sound if file was moved or deleted from phone
+            }
+        }
+
+        if (isReminder) {
+            playMotivationalReminderSound(context)
+        } else {
+            playCelebrationFanfare(context, isLevelUp = isLevelUp)
+        }
+    }
+
+    fun stopActiveCustomSound() {
+        try {
+            activeMediaPlayer?.let {
+                if (it.isPlaying) it.stop()
+                it.release()
+            }
+        } catch (_: Exception) {
+        } finally {
+            activeMediaPlayer = null
+        }
+    }
 
     fun playCelebrationFanfare(context: Context, isLevelUp: Boolean = false) {
         triggerHaptics(context, isLevelUp)
@@ -483,16 +581,12 @@ object CelebrationSoundEngine {
         playSynthesizedSequence(motivationalChord, durationSeconds = 1.45)
     }
 
-    /**
-     * Plays a descending power-drain tone when the user logs a wasted/unproductive hour
-     * that deducts XP from their superhero.
-     */
     fun playPenaltyDrainSound(context: Context) {
         triggerHaptics(context, isLevelUp = false)
         val drainNotes = listOf(
-            Triple(392.00, 0.00, 0.35), // G4
-            Triple(349.23, 0.14, 0.35), // F4
-            Triple(293.66, 0.28, 0.55)  // D4
+            Triple(392.00, 0.00, 0.35),
+            Triple(349.23, 0.14, 0.35),
+            Triple(293.66, 0.28, 0.55)
         )
         playSynthesizedSequence(drainNotes, durationSeconds = 0.90)
     }
@@ -573,7 +667,7 @@ object CelebrationSoundEngine {
 }
 
 // ============================================================================
-// 6. SCHEDULED MOTIVATIONAL NOTIFICATIONS
+// 6. SCHEDULED MOTIVATIONAL NOTIFICATIONS (WITH CUSTOM SOUND PER ITEM)
 // ============================================================================
 object ReminderScheduler {
     private val motivationalQuotes = listOf(
@@ -583,7 +677,14 @@ object ReminderScheduler {
         "Champions guard every hour of the day. Log a Peak Flow hour! 🏆"
     )
 
-    fun scheduleReminder(context: Context, itemId: String, title: String, timeStr: String, isHabit: Boolean) {
+    fun scheduleReminder(
+        context: Context,
+        itemId: String,
+        title: String,
+        timeStr: String,
+        isHabit: Boolean,
+        customSoundUri: String = ""
+    ) {
         if (timeStr.isBlank() || !timeStr.contains(":")) {
             cancelReminder(context, itemId)
             return
@@ -604,6 +705,7 @@ object ReminderScheduler {
                 putExtra("EXTRA_TITLE", title)
                 putExtra("EXTRA_TIME", timeStr)
                 putExtra("EXTRA_IS_HABIT", isHabit)
+                putExtra("EXTRA_SOUND_URI", customSoundUri)
                 putExtra("EXTRA_QUOTE", motivationalQuotes.random())
             }
             val pendingIntent = PendingIntent.getBroadcast(
@@ -645,9 +747,15 @@ class MotivationReminderReceiver : BroadcastReceiver() {
         val title = intent.getStringExtra("EXTRA_TITLE") ?: "Time to Execute!"
         val quote = intent.getStringExtra("EXTRA_QUOTE") ?: "Upgrade your Alpha Superhero today! 🔥"
         val timeStr = intent.getStringExtra("EXTRA_TIME") ?: ""
+        val customSoundUri = intent.getStringExtra("EXTRA_SOUND_URI") ?: ""
         val isHabit = intent.getBooleanExtra("EXTRA_IS_HABIT", true)
 
-        CelebrationSoundEngine.playMotivationalReminderSound(context)
+        // Play the item's custom imported phone audio (or fallback motivational chime)
+        CelebrationSoundEngine.playCustomOrDefaultSound(
+            context = context,
+            customSoundUri = customSoundUri,
+            isReminder = true
+        )
 
         val channelId = "alpha_motivation_channel"
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -686,13 +794,13 @@ class MotivationReminderReceiver : BroadcastReceiver() {
         nm.notify(id.hashCode(), notification)
 
         if (isHabit && timeStr.isNotBlank()) {
-            ReminderScheduler.scheduleReminder(context, id, title, timeStr, true)
+            ReminderScheduler.scheduleReminder(context, id, title, timeStr, true, customSoundUri)
         }
     }
 }
 
 // ============================================================================
-// 7. HOME SCREEN WIDGETS (Habits Widget + Auto-Renewing Tasks Widget)
+// 7. HOME SCREEN WIDGETS (Plays Custom Sound on Widget Completion Too!)
 // ============================================================================
 class HabitWidgetProvider : AppWidgetProvider() {
 
@@ -705,10 +813,11 @@ class HabitWidgetProvider : AppWidgetProvider() {
         if (intent.action == ACTION_WIDGET_TOGGLE_HABIT) {
             val habitId = intent.getStringExtra(EXTRA_HABIT_ID) ?: return
             val storage = StudioStorageManager(context)
-            val toggledTitle = storage.toggleHabitDirectlyFromWidget(habitId)
-            if (toggledTitle != null) {
-                CelebrationSoundEngine.playCelebrationFanfare(context, isLevelUp = false)
-                Toast.makeText(context, "⚡ $toggledTitle Complete! +35 XP (Hero Powered Up!)", Toast.LENGTH_SHORT).show()
+            val resultPair = storage.toggleHabitDirectlyFromWidget(habitId)
+            if (resultPair != null) {
+                val (toggledTitle, soundUri) = resultPair
+                CelebrationSoundEngine.playCustomOrDefaultSound(context, soundUri, isReminder = false)
+                Toast.makeText(context, "⚡ $toggledTitle Complete! +35 XP", Toast.LENGTH_SHORT).show()
             }
             updateAllWidgets(context)
         }
@@ -803,9 +912,10 @@ class TaskWidgetProvider : AppWidgetProvider() {
         if (intent.action == ACTION_WIDGET_TOGGLE_TASK) {
             val taskId = intent.getStringExtra(EXTRA_TASK_ID) ?: return
             val storage = StudioStorageManager(context)
-            val completedTitle = storage.toggleTaskDirectlyFromWidget(taskId)
-            if (completedTitle != null) {
-                CelebrationSoundEngine.playCelebrationFanfare(context, isLevelUp = false)
+            val resultPair = storage.toggleTaskDirectlyFromWidget(taskId)
+            if (resultPair != null) {
+                val (completedTitle, soundUri) = resultPair
+                CelebrationSoundEngine.playCustomOrDefaultSound(context, soundUri, isReminder = false)
                 Toast.makeText(context, "🎯 Mission Complete: $completedTitle!", Toast.LENGTH_SHORT).show()
             }
             updateAllTaskWidgets(context)
@@ -891,7 +1001,7 @@ class TaskWidgetProvider : AppWidgetProvider() {
 }
 
 // ============================================================================
-// 8. LOCAL PERSISTENCE & GOOGLE DRIVE / CLOUD BACKUP ENGINE
+// 8. LOCAL PERSISTENCE & GOOGLE DRIVE BACKUP ENGINE
 // ============================================================================
 class StudioStorageManager(private val context: Context) {
     private val prefs = context.getSharedPreferences("aura_studio_vault_v2", Context.MODE_PRIVATE)
@@ -974,6 +1084,7 @@ class StudioStorageManager(private val context: Context) {
                         unit = o.optString("unit", "times"),
                         stepSize = o.optDouble("stepSize", 1.0).toFloat(),
                         reminderTime = o.optString("reminderTime", ""),
+                        customSoundUri = o.optString("customSoundUri", ""),
                         logs = logsMap
                     )
                 )
@@ -995,7 +1106,6 @@ class StudioStorageManager(private val context: Context) {
                 val isRec = o.optBoolean("isRecurring", false)
                 val lastDate = o.optString("lastCompletedDate", "")
                 val rawCompleted = o.optBoolean("isCompleted", false)
-                // Auto-renew recurring tasks if completed on a previous day
                 val effectiveCompleted = if (isRec && rawCompleted && lastDate.isNotBlank() && lastDate != todayStr) {
                     false
                 } else {
@@ -1007,6 +1117,7 @@ class StudioStorageManager(private val context: Context) {
                         title = o.optString("title"),
                         category = o.optString("category", "Personal"),
                         priority = runCatching { TodoPriority.valueOf(o.optString("priority")) }.getOrDefault(TodoPriority.P2_HIGH),
+                        customSoundUri = o.optString("customSoundUri", ""),
                         isCompleted = effectiveCompleted,
                         isRecurring = isRec,
                         lastCompletedDate = lastDate,
@@ -1019,13 +1130,14 @@ class StudioStorageManager(private val context: Context) {
         return result
     }
 
-    fun toggleHabitDirectlyFromWidget(habitId: String): String? {
+    fun toggleHabitDirectlyFromWidget(habitId: String): Pair<String, String>? {
         val jsonStr = getSavedJson() ?: return null
         try {
             val root = JSONObject(jsonStr)
             val todayKey = LocalDate.now().toString()
             val habitsArr = root.optJSONArray("habits") ?: return null
             var completedHabitTitle: String? = null
+            var soundUri = ""
 
             for (i in 0 until habitsArr.length()) {
                 val o = habitsArr.getJSONObject(i)
@@ -1033,6 +1145,7 @@ class StudioStorageManager(private val context: Context) {
                     val target = o.optDouble("targetValue", 1.0).toFloat()
                     val step = o.optDouble("stepSize", 1.0).toFloat()
                     val type = o.optString("type", "CHECKLIST")
+                    soundUri = o.optString("customSoundUri", "")
                     val logsObj = o.optJSONObject("logs") ?: JSONObject()
                     val currentVal = logsObj.optDouble(todayKey, 0.0).toFloat()
 
@@ -1056,28 +1169,30 @@ class StudioStorageManager(private val context: Context) {
             }
 
             if (completedHabitTitle != null) {
-                root.put("xp", root.optInt("xp", 460) + 35)
+                root.put("xp", root.optInt("xp", 520) + 35)
             }
             prefs.edit().putString("master_state_json", root.toString()).apply()
-            return completedHabitTitle
+            return completedHabitTitle?.let { it to soundUri }
         } catch (_: Exception) {
             return null
         }
     }
 
-    fun toggleTaskDirectlyFromWidget(taskId: String): String? {
+    fun toggleTaskDirectlyFromWidget(taskId: String): Pair<String, String>? {
         val jsonStr = getSavedJson() ?: return null
         try {
             val root = JSONObject(jsonStr)
             val todosArr = root.optJSONArray("todos") ?: return null
             val todayStr = LocalDate.now().toString()
             var newlyCompletedTitle: String? = null
+            var soundUri = ""
 
             for (i in 0 until todosArr.length()) {
                 val o = todosArr.getJSONObject(i)
                 if (o.optString("id") == taskId) {
                     val wasDone = o.optBoolean("isCompleted", false)
                     val nowDone = !wasDone
+                    soundUri = o.optString("customSoundUri", "")
                     o.put("isCompleted", nowDone)
                     if (nowDone) {
                         o.put("lastCompletedDate", todayStr)
@@ -1089,10 +1204,10 @@ class StudioStorageManager(private val context: Context) {
             }
 
             if (newlyCompletedTitle != null) {
-                root.put("xp", root.optInt("xp", 460) + 25)
+                root.put("xp", root.optInt("xp", 520) + 25)
             }
             prefs.edit().putString("master_state_json", root.toString()).apply()
-            return newlyCompletedTitle
+            return newlyCompletedTitle?.let { it to soundUri }
         } catch (_: Exception) {
             return null
         }
@@ -1133,7 +1248,7 @@ class StudioStorageManager(private val context: Context) {
         notes: List<NotebookEntry>
     ): JSONObject {
         val root = JSONObject()
-        root.put("schemaVersion", 5)
+        root.put("schemaVersion", 6)
         root.put("exportedAt", System.currentTimeMillis())
         root.put("xp", xp)
         root.put("streakShields", streakShields)
@@ -1157,6 +1272,7 @@ class StudioStorageManager(private val context: Context) {
                 put("unit", h.unit)
                 put("stepSize", h.stepSize.toDouble())
                 put("reminderTime", h.reminderTime)
+                put("customSoundUri", h.customSoundUri)
                 val logsObj = JSONObject()
                 h.logs.forEach { (k, v) -> logsObj.put(k, v.toDouble()) }
                 put("logs", logsObj)
@@ -1182,6 +1298,7 @@ class StudioStorageManager(private val context: Context) {
                 put("date", t.date)
                 put("timeBlock", t.timeBlock)
                 put("reminderTime", t.reminderTime)
+                put("customSoundUri", t.customSoundUri)
                 put("isCompleted", t.isCompleted)
                 put("isRecurring", t.isRecurring)
                 put("lastCompletedDate", t.lastCompletedDate)
@@ -1255,7 +1372,7 @@ class StudioStorageManager(private val context: Context) {
 }
 
 // ============================================================================
-// 9. ALPHA SUPERHERO VIEWMODEL (5 Sections, Auto-Renewal, Hourly Score, Hero Coach)
+// 9. ALPHA SUPERHERO VIEWMODEL
 // ============================================================================
 class HabitTrackerViewModel : ViewModel() {
 
@@ -1273,7 +1390,6 @@ class HabitTrackerViewModel : ViewModel() {
     val readingTheme = mutableStateOf(SanctuaryReadingTheme.WARM_SEPIA)
     val readingFontScale = mutableFloatStateOf(1.0f)
 
-    // Superhero XP & Manual Stat Upgrades
     val userXp = mutableIntStateOf(520)
     val streakShields = mutableIntStateOf(3)
     val bonusHeroStr = mutableIntStateOf(0)
@@ -1299,10 +1415,6 @@ class HabitTrackerViewModel : ViewModel() {
         CelebrationSoundEngine.playMotivationalReminderSound(context)
     }
 
-    /**
-     * Allows the user to invest 50 XP into permanently boosting one of their
-     * Superhero's core powers (STR, INT, WIL, VIT).
-     */
     fun upgradeSuperheroPower(context: Context, statType: String) {
         if (userXp.intValue < 50) {
             Toast.makeText(context, "Earn at least 50 XP from Habits/Tasks to upgrade!", Toast.LENGTH_SHORT).show()
@@ -1314,7 +1426,7 @@ class HabitTrackerViewModel : ViewModel() {
             "WIL" -> bonusHeroWil.intValue += 15
             "VIT" -> bonusHeroVit.intValue += 15
         }
-        userXp.intValue += 10 // Bonus mastery XP
+        userXp.intValue += 10
         CelebrationSoundEngine.playCelebrationFanfare(context, isLevelUp = true)
         persistState(context)
     }
@@ -1375,7 +1487,6 @@ class HabitTrackerViewModel : ViewModel() {
         )
     }
 
-    // --- Daily Productivity Score Calculation (0..100%) ---
     fun getDailyProductivityScore(date: LocalDate = selectedDate.value): Int {
         val dateStr = date.toString()
         val habitsDone = habits.count { it.isCompletedOn(date) }
@@ -1393,7 +1504,6 @@ class HabitTrackerViewModel : ViewModel() {
         else -> "D • NEEDS FOCUS"
     }
 
-    // --- Hourly Productivity Ledger Operations ---
     fun logOrUpdateHour(
         context: Context,
         hour24: Int,
@@ -1420,7 +1530,6 @@ class HabitTrackerViewModel : ViewModel() {
         }
         hourlyLogs.sortBy { it.hour24 }
 
-        // Adjust XP by the net change
         val netXpChange = status.xpDelta - previousXpDelta
         userXp.intValue = (userXp.intValue + netXpChange).coerceAtLeast(0)
 
@@ -1429,7 +1538,7 @@ class HabitTrackerViewModel : ViewModel() {
                 context = context,
                 title = "⚡ Productive Hour Logged!",
                 subtitle = "${newItem.formattedHourRange()} • ${status.shortBadge} added to Superhero!",
-                xpEarned = 0 // Already applied netXpChange above
+                xpEarned = 0
             )
         } else if (status.xpDelta < 0) {
             CelebrationSoundEngine.playPenaltyDrainSound(context)
@@ -1453,7 +1562,6 @@ class HabitTrackerViewModel : ViewModel() {
         }
     }
 
-    // --- Auto-Renewing Daily Tasks Engine ---
     fun checkAndAutoRenewDailyTasks(context: Context, forceRenewForTesting: Boolean = false) {
         val todayStr = LocalDate.now().toString()
         var renewedCount = 0
@@ -1489,7 +1597,6 @@ class HabitTrackerViewModel : ViewModel() {
         }
     }
 
-    // Pomodoro Timer
     val activeFocusTitle = mutableStateOf("Deep Focus Session")
     val activeFocusHabitId = mutableStateOf<String?>(null)
     val focusRemainingSeconds = mutableLongStateOf(25 * 60L)
@@ -1497,13 +1604,11 @@ class HabitTrackerViewModel : ViewModel() {
     val isFocusTimerRunning = mutableStateOf(false)
     private var timerJob: Job? = null
 
-    // Full-Screen Celebration
     val showCelebration = mutableStateOf(false)
     val celebrationTitle = mutableStateOf("")
     val celebrationSubtitle = mutableStateOf("")
     val celebrationXpEarned = mutableIntStateOf(25)
 
-    // Cloud Backup
     val connectedGoogleEmail = mutableStateOf<String?>(null)
     val lastCloudBackup = mutableStateOf("Auto-saved locally")
     val autoCloudSync = mutableStateOf(true)
@@ -1523,7 +1628,6 @@ class HabitTrackerViewModel : ViewModel() {
         if (!savedJson.isNullOrBlank()) {
             restoreFromJsonString(savedJson)
             isInitialized = true
-            // Automatically renew any daily recurring tasks completed on a previous day!
             checkAndAutoRenewDailyTasks(context, forceRenewForTesting = false)
         } else if (!isInitialized) {
             isInitialized = true
@@ -1586,6 +1690,7 @@ class HabitTrackerViewModel : ViewModel() {
                         unit = o.optString("unit", "times"),
                         stepSize = o.optDouble("stepSize", 1.0).toFloat(),
                         reminderTime = o.optString("reminderTime", ""),
+                        customSoundUri = o.optString("customSoundUri", ""),
                         logs = logsMap
                     )
                 )
@@ -1610,6 +1715,7 @@ class HabitTrackerViewModel : ViewModel() {
                         date = o.optString("date", LocalDate.now().toString()),
                         timeBlock = o.optString("timeBlock", "Anytime"),
                         reminderTime = o.optString("reminderTime", ""),
+                        customSoundUri = o.optString("customSoundUri", ""),
                         isCompleted = o.optBoolean("isCompleted", false),
                         isRecurring = o.optBoolean("isRecurring", false),
                         lastCompletedDate = o.optString("lastCompletedDate", ""),
@@ -1714,7 +1820,8 @@ class HabitTrackerViewModel : ViewModel() {
         context: Context,
         title: String,
         subtitle: String,
-        xpEarned: Int = 25
+        xpEarned: Int = 25,
+        customSoundUri: String = ""
     ) {
         val oldStage = getCharacterStats().stage
         val oldLevel = userLevel
@@ -1737,7 +1844,12 @@ class HabitTrackerViewModel : ViewModel() {
         celebrationXpEarned.intValue = if (xpEarned == 0) 25 else xpEarned
         showCelebration.value = true
 
-        CelebrationSoundEngine.playCelebrationFanfare(context, isLevelUp = leveledUp)
+        CelebrationSoundEngine.playCustomOrDefaultSound(
+            context = context,
+            customSoundUri = customSoundUri,
+            isReminder = false,
+            isLevelUp = leveledUp
+        )
         persistState(context)
 
         viewModelScope.launch {
@@ -1746,7 +1858,6 @@ class HabitTrackerViewModel : ViewModel() {
         }
     }
 
-    // --- Focus Timer ---
     fun startFocusTimer(context: Context, title: String, minutes: Int, habitId: String? = null) {
         timerJob?.cancel()
         activeFocusTitle.value = title
@@ -1783,8 +1894,10 @@ class HabitTrackerViewModel : ViewModel() {
             if (focusRemainingSeconds.longValue <= 0L) {
                 isFocusTimerRunning.value = false
                 val mins = (focusTotalSeconds.longValue / 60f).coerceAtLeast(1f)
+                var habitCustomSound = ""
                 activeFocusHabitId.value?.let { id ->
                     habits.find { it.id == id }?.let { h ->
+                        habitCustomSound = h.customSoundUri
                         setHabitMeasurement(context, h, h.valueOn(LocalDate.now()) + mins)
                     }
                 }
@@ -1792,13 +1905,13 @@ class HabitTrackerViewModel : ViewModel() {
                     context = context,
                     title = "⏱️ Superhero Focus Complete!",
                     subtitle = "${activeFocusTitle.value} finished • Hero Intellect +5",
-                    xpEarned = 45
+                    xpEarned = 45,
+                    customSoundUri = habitCustomSound
                 )
             }
         }
     }
 
-    // --- Habit Operations ---
     fun toggleOrStepHabit(context: Context, habit: Habit, date: LocalDate = selectedDate.value) {
         val index = habits.indexOfFirst { it.id == habit.id }
         if (index == -1) return
@@ -1832,7 +1945,8 @@ class HabitTrackerViewModel : ViewModel() {
                 context = context,
                 title = "${updated.emoji} ${updated.title} Crushed!",
                 subtitle = "🔥 ${updated.currentStreak()}-day streak • Superhero Armor Upgraded!",
-                xpEarned = 35
+                xpEarned = 35,
+                customSoundUri = updated.customSoundUri
             )
         } else {
             persistState(context)
@@ -1854,7 +1968,8 @@ class HabitTrackerViewModel : ViewModel() {
                 context = context,
                 title = "${updated.emoji} Target Reached!",
                 subtitle = "$newAmount ${updated.unit} logged for ${updated.title}",
-                xpEarned = 35
+                xpEarned = 35,
+                customSoundUri = updated.customSoundUri
             )
         } else {
             persistState(context)
@@ -1874,10 +1989,21 @@ class HabitTrackerViewModel : ViewModel() {
         targetValue: Float,
         unit: String,
         stepSize: Float,
-        reminderTime: String
+        reminderTime: String,
+        customSoundUri: String = ""
     ) {
         val cleanTitle = title.trim()
         if (cleanTitle.isEmpty()) return
+
+        if (customSoundUri.isNotBlank()) {
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    Uri.parse(customSoundUri),
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (_: Exception) {
+            }
+        }
 
         if (existingId != null) {
             val idx = habits.indexOfFirst { it.id == existingId }
@@ -1893,10 +2019,18 @@ class HabitTrackerViewModel : ViewModel() {
                     targetValue = targetValue.coerceAtLeast(0.1f),
                     unit = unit.ifBlank { "times" },
                     stepSize = stepSize.coerceAtLeast(0.1f),
-                    reminderTime = reminderTime.trim()
+                    reminderTime = reminderTime.trim(),
+                    customSoundUri = customSoundUri.trim()
                 )
                 habits[idx] = updated
-                ReminderScheduler.scheduleReminder(context, updated.id, updated.title, updated.reminderTime, true)
+                ReminderScheduler.scheduleReminder(
+                    context = context,
+                    itemId = updated.id,
+                    title = updated.title,
+                    timeStr = updated.reminderTime,
+                    isHabit = true,
+                    customSoundUri = updated.customSoundUri
+                )
                 persistState(context)
                 return
             }
@@ -1913,10 +2047,18 @@ class HabitTrackerViewModel : ViewModel() {
             targetValue = targetValue.coerceAtLeast(0.1f),
             unit = unit.ifBlank { "times" },
             stepSize = stepSize.coerceAtLeast(0.1f),
-            reminderTime = reminderTime.trim()
+            reminderTime = reminderTime.trim(),
+            customSoundUri = customSoundUri.trim()
         )
         habits.add(0, newHabit)
-        ReminderScheduler.scheduleReminder(context, newHabit.id, newHabit.title, newHabit.reminderTime, true)
+        ReminderScheduler.scheduleReminder(
+            context = context,
+            itemId = newHabit.id,
+            title = newHabit.title,
+            timeStr = newHabit.reminderTime,
+            isHabit = true,
+            customSoundUri = newHabit.customSoundUri
+        )
         persistState(context)
     }
 
@@ -1926,7 +2068,6 @@ class HabitTrackerViewModel : ViewModel() {
         persistState(context)
     }
 
-    // --- To-Do Operations (With Daily Auto-Renewal Tracking) ---
     fun toggleTodo(context: Context, task: TodoTask) {
         val idx = todos.indexOfFirst { it.id == task.id }
         if (idx == -1) return
@@ -1946,7 +2087,8 @@ class HabitTrackerViewModel : ViewModel() {
                 context = context,
                 title = "🎯 Mission Accomplished!",
                 subtitle = "\"${task.title}\" completed$renewNote",
-                xpEarned = task.priority.xpReward
+                xpEarned = task.priority.xpReward,
+                customSoundUri = task.customSoundUri
             )
         } else {
             persistState(context)
@@ -1974,7 +2116,8 @@ class HabitTrackerViewModel : ViewModel() {
                 context = context,
                 title = "✅ All Subtasks Complete!",
                 subtitle = task.title,
-                xpEarned = task.priority.xpReward
+                xpEarned = task.priority.xpReward,
+                customSoundUri = task.customSoundUri
             )
         } else {
             persistState(context)
@@ -1990,10 +2133,21 @@ class HabitTrackerViewModel : ViewModel() {
         reminderTime: String,
         estimatedMinutes: Int,
         subTaskTitles: List<String>,
-        isRecurring: Boolean
+        isRecurring: Boolean,
+        customSoundUri: String = ""
     ) {
         val cleanTitle = title.trim()
         if (cleanTitle.isEmpty()) return
+
+        if (customSoundUri.isNotBlank()) {
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    Uri.parse(customSoundUri),
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (_: Exception) {
+            }
+        }
 
         if (existingId != null) {
             val idx = todos.indexOfFirst { it.id == existingId }
@@ -2008,12 +2162,20 @@ class HabitTrackerViewModel : ViewModel() {
                     category = category.ifBlank { "Personal" },
                     priority = priority,
                     reminderTime = reminderTime.trim(),
+                    customSoundUri = customSoundUri.trim(),
                     estimatedMinutes = estimatedMinutes,
                     subTasks = mergedSubs,
                     isRecurring = isRecurring
                 )
                 todos[idx] = updated
-                ReminderScheduler.scheduleReminder(context, updated.id, updated.title, updated.reminderTime, false)
+                ReminderScheduler.scheduleReminder(
+                    context = context,
+                    itemId = updated.id,
+                    title = updated.title,
+                    timeStr = updated.reminderTime,
+                    isHabit = false,
+                    customSoundUri = updated.customSoundUri
+                )
                 persistState(context)
                 return
             }
@@ -2024,12 +2186,20 @@ class HabitTrackerViewModel : ViewModel() {
             category = category.ifBlank { "Personal" },
             priority = priority,
             reminderTime = reminderTime.trim(),
+            customSoundUri = customSoundUri.trim(),
             estimatedMinutes = estimatedMinutes,
             subTasks = subTaskTitles.filter { it.isNotBlank() }.map { SubTask(title = it.trim()) },
             isRecurring = isRecurring
         )
         todos.add(0, newTask)
-        ReminderScheduler.scheduleReminder(context, newTask.id, newTask.title, newTask.reminderTime, false)
+        ReminderScheduler.scheduleReminder(
+            context = context,
+            itemId = newTask.id,
+            title = newTask.title,
+            timeStr = newTask.reminderTime,
+            isHabit = false,
+            customSoundUri = newTask.customSoundUri
+        )
         persistState(context)
     }
 
@@ -2039,7 +2209,6 @@ class HabitTrackerViewModel : ViewModel() {
         persistState(context)
     }
 
-    // --- Journal Operations ---
     fun saveOrUpdateJournalEntry(
         context: Context,
         existingId: String?,
@@ -2125,7 +2294,6 @@ class HabitTrackerViewModel : ViewModel() {
         persistState(context)
     }
 
-    // --- Notebook Vault Operations ---
     fun saveOrUpdateNotebookEntry(
         context: Context,
         existingId: String?,
@@ -2236,7 +2404,6 @@ class HabitTrackerViewModel : ViewModel() {
             )
         )
 
-        // Starter Tasks with Auto-Renew Every Day enabled
         todos.addAll(
             listOf(
                 TodoTask(
@@ -2272,7 +2439,6 @@ class HabitTrackerViewModel : ViewModel() {
             )
         )
 
-        // Starter Hourly Productivity Logs for Today
         hourlyLogs.addAll(
             listOf(
                 HourlyLogItem(
