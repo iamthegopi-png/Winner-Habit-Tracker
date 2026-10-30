@@ -1142,17 +1142,25 @@ fun StudioDayProductivityAuditSection(
     onOpenSuperheroSheet: () -> Unit
 ) {
     val context = LocalContext.current
-    val todayStr = vm.selectedDate.value.toString()
-    val dayScore = vm.getDailyProductivityScore(vm.selectedDate.value)
+    val selectedDate = vm.selectedDate.value
+    val today = LocalDate.now()
+    val dateStr = selectedDate.toString()
+    val formattedDate = selectedDate.format(DateTimeFormatter.ofPattern("EEE, dd MMM yyyy"))
+
+    val dayScore = vm.getDailyProductivityScore(selectedDate)
     val grade = vm.getDailyProductivityGrade(dayScore)
 
-    val logsForToday = remember(vm.hourlyLogs.toList(), todayStr) {
-        vm.hourlyLogs.filter { it.date == todayStr }.associateBy { it.hour24 }
+    val logsForDay = remember(vm.hourlyLogs.toList(), dateStr) {
+        vm.hourlyLogs.filter { it.date == dateStr }.associateBy { it.hour24 }
     }
 
-    val peakHours = logsForToday.values.count { it.status == HourProductivityStatus.PEAK_FLOW || it.status == HourProductivityStatus.PRODUCTIVE }
-    val wastedHours = logsForToday.values.count { it.status == HourProductivityStatus.TIME_WASTED || it.status == HourProductivityStatus.LOW_FOCUS }
-    val netXpToday = logsForToday.values.sumOf { it.status.xpDelta }
+    val peakHours = logsForDay.values.count {
+        it.status == HourProductivityStatus.PEAK_FLOW || it.status == HourProductivityStatus.PRODUCTIVE
+    }
+    val wastedHours = logsForDay.values.count {
+        it.status == HourProductivityStatus.TIME_WASTED || it.status == HourProductivityStatus.LOW_FOCUS
+    }
+    val netXpDay = logsForDay.values.sumOf { it.status.xpDelta }
 
     var editingHour24 by remember { mutableStateOf<Int?>(null) }
 
@@ -1168,7 +1176,78 @@ fun StudioDayProductivityAuditSection(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // 1. Daily Productivity Score & Penalty Dashboard Card
+        // 1. Date Navigator Bar (< Previous Day | Date Picker | Next Day >)
+        item {
+            Surface(
+                color = AppColors.BgCard,
+                shape = RoundedCornerShape(18.dp),
+                border = BorderStroke(1.dp, AppColors.BorderSubtle),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    IconButton(onClick = { vm.selectedDate.value = selectedDate.minusDays(1) }) {
+                        Icon(Icons.Default.ChevronLeft, contentDescription = "Previous Day", tint = AppColors.TextPrimary)
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable {
+                                android.app.DatePickerDialog(
+                                    context,
+                                    { _, year, month, dayOfMonth ->
+                                        vm.selectedDate.value = LocalDate.of(year, month + 1, dayOfMonth)
+                                    },
+                                    selectedDate.year,
+                                    selectedDate.monthValue - 1,
+                                    selectedDate.dayOfMonth
+                                ).show()
+                            }
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        Icon(Icons.Default.DateRange, null, tint = AppColors.CyberCyan, modifier = Modifier.size(18.dp))
+                        Text(
+                            text = if (selectedDate == today) "Today ($formattedDate)" else formattedDate,
+                            color = AppColors.TextPrimary,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 14.sp
+                        )
+                    }
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (selectedDate != today) {
+                            TextButton(onClick = { vm.selectedDate.value = today }) {
+                                Text("Today", color = AppColors.MintGlow, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        IconButton(
+                            onClick = {
+                                if (selectedDate.isBefore(today)) {
+                                    vm.selectedDate.value = selectedDate.plusDays(1)
+                                }
+                            },
+                            enabled = selectedDate.isBefore(today)
+                        ) {
+                            Icon(
+                                Icons.Default.ChevronRight,
+                                contentDescription = "Next Day",
+                                tint = if (selectedDate.isBefore(today)) AppColors.TextPrimary else AppColors.TextMuted
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Daily Productivity Score & Penalty Dashboard Card
         item {
             Surface(
                 color = AppColors.BgCard,
@@ -1184,9 +1263,9 @@ fun StudioDayProductivityAuditSection(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "📊 DAILY PRODUCTIVITY AUDIT",
+                                text = "📊 PRODUCTIVITY REPORT • ${formattedDate.uppercase()}",
                                 color = scoreColor,
-                                fontSize = 11.sp,
+                                fontSize = 10.sp,
                                 fontWeight = FontWeight.ExtraBold
                             )
                             Spacer(Modifier.height(4.dp))
@@ -1203,7 +1282,6 @@ fun StudioDayProductivityAuditSection(
                             )
                         }
 
-                        // Circular Day Score Gauge
                         Box(
                             modifier = Modifier.size(74.dp),
                             contentAlignment = Alignment.Center
@@ -1249,15 +1327,15 @@ fun StudioDayProductivityAuditSection(
                         AuditStatPill(
                             modifier = Modifier.weight(1f),
                             title = "⚡ Net Hero XP",
-                            value = if (netXpToday >= 0) "+$netXpToday XP" else "$netXpToday XP",
-                            color = if (netXpToday >= 0) AppColors.SolarGold else AppColors.CrimsonRose
+                            value = if (netXpDay >= 0) "+$netXpDay XP" else "$netXpDay XP",
+                            color = if (netXpDay >= 0) AppColors.SolarGold else AppColors.CrimsonRose
                         )
                     }
                 }
             }
         }
 
-        // 2. Hour-by-Hour Timeline Header
+        // 3. Hour-by-Hour Timeline Header
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1271,7 +1349,7 @@ fun StudioDayProductivityAuditSection(
                     fontSize = 15.sp
                 )
                 Text(
-                    text = "Tap any hour to log",
+                    text = "Tap any hour to edit",
                     color = AppColors.CyberCyan,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold
@@ -1279,10 +1357,10 @@ fun StudioDayProductivityAuditSection(
             }
         }
 
-        // 3. 18 Interactive Hour Slots (06:00 to 23:00)
+        // 4. 18 Interactive Hour Slots (06:00 to 23:00)
         val hoursList = (6..23).toList()
-        items(hoursList, key = { it }) { hour24 ->
-            val loggedItem = logsForToday[hour24]
+        items(hoursList, key = { "$dateStr-$it" }) { hour24 ->
+            val loggedItem = logsForDay[hour24]
             HourlySlotCard(
                 hour24 = hour24,
                 loggedItem = loggedItem,
@@ -1292,7 +1370,8 @@ fun StudioDayProductivityAuditSection(
                         context = context,
                         hour24 = hour24,
                         activityNote = "Wasted time / Unproductive hour",
-                        status = HourProductivityStatus.TIME_WASTED
+                        status = HourProductivityStatus.TIME_WASTED,
+                        date = selectedDate
                     )
                 },
                 onQuickFlow = {
@@ -1300,7 +1379,8 @@ fun StudioDayProductivityAuditSection(
                         context = context,
                         hour24 = hour24,
                         activityNote = "Focused productive work block",
-                        status = HourProductivityStatus.PEAK_FLOW
+                        status = HourProductivityStatus.PEAK_FLOW,
+                        date = selectedDate
                     )
                 }
             )
@@ -1312,20 +1392,19 @@ fun StudioDayProductivityAuditSection(
     editingHour24?.let { hour ->
         LogHourActivityDialog(
             hour24 = hour,
-            existingLog = logsForToday[hour],
+            existingLog = logsForDay[hour],
             onDismiss = { editingHour24 = null },
             onSave = { note, status ->
-                vm.logOrUpdateHour(context, hour, note, status)
+                vm.logOrUpdateHour(context, hour, note, status, selectedDate)
                 editingHour24 = null
             },
             onDelete = {
-                logsForToday[hour]?.let { vm.deleteHourlyLog(context, it.id) }
+                logsForDay[hour]?.let { vm.deleteHourlyLog(context, it.id) }
                 editingHour24 = null
             }
         )
     }
 }
-
 @Composable
 fun AuditStatPill(
     modifier: Modifier,
@@ -1378,7 +1457,6 @@ fun HourlySlotCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Left Time Pill
             Surface(
                 color = if (loggedItem != null) statusColor.copy(alpha = 0.16f) else AppColors.BgCardElevated,
                 shape = RoundedCornerShape(10.dp)
@@ -1394,7 +1472,6 @@ fun HourlySlotCard(
 
             Spacer(Modifier.width(12.dp))
 
-            // Middle Activity Description
             Column(modifier = Modifier.weight(1f)) {
                 if (loggedItem != null) {
                     Text(
@@ -1423,7 +1500,6 @@ fun HourlySlotCard(
 
             Spacer(Modifier.width(8.dp))
 
-            // Right Quick 1-Tap Buttons (+Flow or -Penalty)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Box(
                     modifier = Modifier
