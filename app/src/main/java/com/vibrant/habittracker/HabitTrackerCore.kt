@@ -68,16 +68,6 @@ object AppColors {
     val SolarGold = Color(0xFFFBBF24)
     val IndigoPulse = Color(0xFF6366F1)
 
-    val NeonGreen = MintGlow
-    val NeonGreenGlow = Color(0xFF064E3B)
-    val MintGreen = MintGlow
-    val LavenderPurple = ElectricViolet
-    val PeriwinkleBlue = IndigoPulse
-    val CoralOrange = SunsetCoral
-    val RoseRed = CrimsonRose
-    val AmberGold = SolarGold
-    val BorderDark = BorderSubtle
-
     val TextPrimary = Color(0xFFF8FAFC)
     val TextSecondary = Color(0xFF94A3B8)
     val TextMuted = Color(0xFF64748B)
@@ -91,7 +81,6 @@ object AppColors {
         CrimsonRose,
         IndigoPulse
     )
-    val AccentPresets = StudioPalette
 }
 
 enum class SanctuaryReadingTheme(
@@ -149,70 +138,91 @@ enum class SanctuaryReadingTheme(
 }
 
 // ============================================================================
-// 2. EVOLVING ALPHA CHARACTER SYSTEM (Upgrades with Streaks, Habits & XP)
+// 2. SUPERHERO EVOLUTION & MOTIVATION ENGINE (Upgrades with XP, Drains on Wasted Hours)
 // ============================================================================
 enum class CharacterStage(
     val stageNumber: Int,
     val title: String,
     val formName: String,
+    val suitName: String,
+    val superpower: String,
     val tagline: String,
     val primaryColorHex: Long,
     val secondaryColorHex: Long,
+    val capeColorHex: Long,
     val weaponOrGear: String
 ) {
     STAGE_1_SPARK(
         stageNumber = 1,
-        title = "Spark Initiate",
-        formName = "Novice Striker",
-        tagline = "Awakening discipline. Complete habits daily to forge your armor.",
+        title = "Shadow Vigilante",
+        formName = "Alpha Recruit",
+        suitName = "Stealth Kevlar Mk-I",
+        superpower = "Kinetic Reflexes",
+        tagline = "Every superhero starts with one disciplined hour. Protect your time!",
         primaryColorHex = 0xFF38BDF8,
         secondaryColorHex = 0xFF34D399,
-        weaponOrGear = "Energy Gauntlets"
+        capeColorHex = 0xFF1E3A8A,
+        weaponOrGear = "Pulse Grappler & Cowl"
     ),
     STAGE_2_VANGUARD(
         stageNumber = 2,
-        title = "Iron Vanguard",
-        formName = "Armored Sentinel",
-        tagline = "Streaks are hardening your resolve. Plasma shield unlocked!",
+        title = "Cyber Centurion",
+        formName = "Cobalt Defender",
+        suitName = "Titanium Exo-Suit Mk-II",
+        superpower = "Plasma Barrier",
+        tagline = "Your daily streaks are charging the arc core. Don't let distractions drain it!",
         primaryColorHex = 0xFF34D399,
-        secondaryColorHex = 0xFF10B981,
-        weaponOrGear = "Vanguard Aegis Shield"
+        secondaryColorHex = 0xFF06B6D4,
+        capeColorHex = 0xFF065F46,
+        weaponOrGear = "Vibranium Aegis & Thrusters"
     ),
     STAGE_3_SPARTAN(
         stageNumber = 3,
-        title = "Cyber Spartan",
-        formName = "Twin-Blade Enforcer",
-        tagline = "Relentless consistency! Neon visor and twin cyber-blades active.",
-        primaryColorHex = 0xFFA855F7,
-        secondaryColorHex = 0xFF06B6D4,
-        weaponOrGear = "Twin Cyber-Blades"
+        title = "Crimson Avenger",
+        formName = "Apex Striker",
+        suitName = "Nanotech Battle Suit Mk-III",
+        superpower = "Supersonic Flight",
+        tagline = "High-output momentum unlocked! Your cape and photon gauntlets are online.",
+        primaryColorHex = 0xFFF43F5E,
+        secondaryColorHex = 0xFFFBBF24,
+        capeColorHex = 0xFF9F1239,
+        weaponOrGear = "Photon Gauntlets & Crimson Cape"
     ),
     STAGE_4_WARLORD(
         stageNumber = 4,
-        title = "Solar Warlord",
-        formName = "Radiant Commander",
-        tagline = "Peak momentum! Solar wings and golden plasma aura ignited.",
-        primaryColorHex = 0xFFF97316,
-        secondaryColorHex = 0xFFFBBF24,
-        weaponOrGear = "Solar Halberd & Wings"
+        title = "Thunder Paragon",
+        formName = "Storm Sovereign",
+        suitName = "Asgardian Electro-Armor Mk-IV",
+        superpower = "Bio-Electric Lightning",
+        tagline = "You command the hours of your day. Lightning surges through your armor!",
+        primaryColorHex = 0xFFA855F7,
+        secondaryColorHex = 0xFF38BDF8,
+        capeColorHex = 0xFF581C87,
+        weaponOrGear = "Stormbreaker Energy Core"
     ),
     STAGE_5_EMPEROR(
         stageNumber = 5,
-        title = "Crimson Titan",
-        formName = "Apex Overlord",
-        tagline = "Unstoppable willpower! Lightning halo and titan armor forged.",
-        primaryColorHex = 0xFFF43F5E,
+        title = "Solar Hyperion",
+        formName = "Sunforged Sentinel",
+        suitName = "Celestial Gold Armor Mk-V",
+        superpower = "Solar Nova Beam",
+        tagline = "Peak human discipline! Golden wings of light and unstoppable focus.",
+        primaryColorHex = 0xFFF97316,
         secondaryColorHex = 0xFFFBBF24,
-        weaponOrGear = "Apex Lightning Greatsword"
+        capeColorHex = 0xFFB45309,
+        weaponOrGear = "Solar Halo & Golden Cape"
     ),
     STAGE_6_SOVEREIGN(
         stageNumber = 6,
-        title = "Alpha Sovereign",
-        formName = "Ascended God-Tier",
-        tagline = "Master of all habits. Celestial Alpha crown and infinite aura!",
+        title = "Omega Prime",
+        formName = "Cosmic Alpha Hero",
+        suitName = "Infinity Quantum Armor Mk-VI",
+        superpower = "Reality & Time Mastery",
+        tagline = "Ultimate Superhero form achieved! Master of time, habits, and destiny.",
         primaryColorHex = 0xFFFBBF24,
         secondaryColorHex = 0xFFF43F5E,
-        weaponOrGear = "Celestial Alpha Crown"
+        capeColorHex = 0xFF7F1D1D,
+        weaponOrGear = "Omega Infinity Crest & Cosmic Aura"
     )
 }
 
@@ -221,15 +231,51 @@ data class AlphaCharacterStats(
     val stage: CharacterStage,
     val level: Int,
     val combatPower: Int,
-    val strength: Int,   // Fitness & physical habits
-    val intellect: Int,  // Career, focus & book notes
-    val willpower: Int,  // Streaks & Quit Shields
-    val vitality: Int,   // Health, water & journal reflections
-    val activeStreakBonus: Int
+    val strength: Int,
+    val intellect: Int,
+    val willpower: Int,
+    val vitality: Int,
+    val activeStreakBonus: Int,
+    val heroSpeechBubble: String
 )
 
 // ============================================================================
-// 3. CORE DATA MODELS
+// 3. HOURLY PRODUCTIVITY LEDGER MODELS (New 5th Section: Day Audit)
+// ============================================================================
+enum class HourProductivityStatus(
+    val label: String,
+    val shortBadge: String,
+    val xpDelta: Int,
+    val scoreDelta: Int,
+    val colorHex: Long
+) {
+    PEAK_FLOW("🔥 Peak Flow / Deep Work", "+25 XP", 25, 15, 0xFF34D399),
+    PRODUCTIVE("✅ Productive / Useful", "+15 XP", 15, 10, 0xFF06B6D4),
+    NEUTRAL("☕ Rest / Recharge", "0 XP", 0, 2, 0xFF94A3B8),
+    LOW_FOCUS("⚠️ Distracted / Slow", "-15 XP", -15, -10, 0xFFF97316),
+    TIME_WASTED("💀 Wasted / Doomscroll", "-30 XP", -30, -20, 0xFFF43F5E);
+
+    val color get() = Color(colorHex)
+}
+
+@Immutable
+data class HourlyLogItem(
+    val id: String = UUID.randomUUID().toString(),
+    val date: String = LocalDate.now().toString(),
+    val hour24: Int, // 0..23
+    val activityNote: String,
+    val status: HourProductivityStatus
+) {
+    fun formattedHourRange(): String {
+        val start = LocalTime.of(hour24.coerceIn(0, 23), 0)
+        val end = start.plusHours(1)
+        val fmt = DateTimeFormatter.ofPattern("hh:mm a")
+        return "${start.format(fmt)} - ${end.format(fmt)}"
+    }
+}
+
+// ============================================================================
+// 4. HABIT, AUTO-RENEW TASK, JOURNAL & VAULT MODELS
 // ============================================================================
 enum class HabitType(val label: String) {
     CHECKLIST("Checklist"),
@@ -269,7 +315,6 @@ data class Habit(
     val stepSize: Float = 1f,
     val reminderTime: String = "",
     val logs: Map<String, Float> = emptyMap(),
-    val notesPerDay: Map<String, String> = emptyMap(),
     val createdAt: String = LocalDate.now().toString()
 ) {
     val accentColor: Color get() = Color(colorHex)
@@ -318,9 +363,6 @@ data class Habit(
         }
         return ((completed / 30f) * 100f).toInt()
     }
-
-    fun totalVolume(): Float = logs.values.filter { it > 0f }.sum()
-    fun totalLoggedValue(): Float = totalVolume()
 }
 
 enum class TodoPriority(val label: String, val shortTag: String, val colorHex: Long, val xpReward: Int) {
@@ -347,11 +389,12 @@ data class TodoTask(
     val timeBlock: String = "Anytime",
     val reminderTime: String = "",
     val isCompleted: Boolean = false,
-    val isRecurring: Boolean = false,
+    val isRecurring: Boolean = false,       // Auto-Renew Daily flag
+    val lastCompletedDate: String = "",     // Used to auto-reset on the next day
+    val renewalStreak: Int = 0,             // Counts consecutive days completed
     val estimatedMinutes: Int = 25,
     val subTasks: List<SubTask> = emptyList(),
-    val notes: String = "",
-    val note: String = ""
+    val notes: String = ""
 )
 
 @Immutable
@@ -402,7 +445,7 @@ data class NotebookEntry(
 )
 
 // ============================================================================
-// 4. SYNTHESIZED SOUND ENGINE (Celebration & Motivational Notification Chime)
+// 5. SYNTHESIZED SOUND ENGINE (Celebration, Motivational Chime & Penalty Buzz)
 // ============================================================================
 object CelebrationSoundEngine {
 
@@ -438,6 +481,20 @@ object CelebrationSoundEngine {
             Triple(1108.73, 0.50, 0.95)
         )
         playSynthesizedSequence(motivationalChord, durationSeconds = 1.45)
+    }
+
+    /**
+     * Plays a descending power-drain tone when the user logs a wasted/unproductive hour
+     * that deducts XP from their superhero.
+     */
+    fun playPenaltyDrainSound(context: Context) {
+        triggerHaptics(context, isLevelUp = false)
+        val drainNotes = listOf(
+            Triple(392.00, 0.00, 0.35), // G4
+            Triple(349.23, 0.14, 0.35), // F4
+            Triple(293.66, 0.28, 0.55)  // D4
+        )
+        playSynthesizedSequence(drainNotes, durationSeconds = 0.90)
     }
 
     private fun playSynthesizedSequence(
@@ -516,14 +573,14 @@ object CelebrationSoundEngine {
 }
 
 // ============================================================================
-// 5. SCHEDULED MOTIVATIONAL NOTIFICATIONS
+// 6. SCHEDULED MOTIVATIONAL NOTIFICATIONS
 // ============================================================================
 object ReminderScheduler {
     private val motivationalQuotes = listOf(
-        "Alpha mindset: Small daily disciplines build unstoppable power! 🔥",
-        "Your character grows stronger with every habit you complete today! ⚡",
-        "Action cures resistance. Execute for just 2 minutes right now! 🚀",
-        "Champions don't wait for mood—they honor their system! 🏆"
+        "Superhero Protocol: Every completed habit upgrades your armor! 🔥",
+        "Don't let distractions drain your Hero XP today—execute now! ⚡",
+        "Your daily auto-renewing missions are waiting. Claim your XP! 🚀",
+        "Champions guard every hour of the day. Log a Peak Flow hour! 🏆"
     )
 
     fun scheduleReminder(context: Context, itemId: String, title: String, timeStr: String, isHabit: Boolean) {
@@ -586,7 +643,7 @@ class MotivationReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val id = intent.getStringExtra("EXTRA_ID") ?: UUID.randomUUID().toString()
         val title = intent.getStringExtra("EXTRA_TITLE") ?: "Time to Execute!"
-        val quote = intent.getStringExtra("EXTRA_QUOTE") ?: "Upgrade your Alpha character today! 🔥"
+        val quote = intent.getStringExtra("EXTRA_QUOTE") ?: "Upgrade your Alpha Superhero today! 🔥"
         val timeStr = intent.getStringExtra("EXTRA_TIME") ?: ""
         val isHabit = intent.getBooleanExtra("EXTRA_IS_HABIT", true)
 
@@ -597,7 +654,7 @@ class MotivationReminderReceiver : BroadcastReceiver() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 channelId,
-                "Alpha Habit & Task Reminders",
+                "Alpha Superhero Reminders",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "Custom scheduled reminders with motivational sound"
@@ -620,7 +677,7 @@ class MotivationReminderReceiver : BroadcastReceiver() {
             .setSmallIcon(android.R.drawable.ic_popup_reminder)
             .setContentTitle(if (isHabit) "⚡ Alpha Habit: $title" else "🎯 Alpha Mission: $title")
             .setContentText(quote)
-            .setStyle(NotificationCompat.BigTextStyle().bigText("$quote\nTap to complete & power up your character!"))
+            .setStyle(NotificationCompat.BigTextStyle().bigText("$quote\nTap to complete & power up your Superhero!"))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(contentPendingIntent)
@@ -635,7 +692,7 @@ class MotivationReminderReceiver : BroadcastReceiver() {
 }
 
 // ============================================================================
-// 6. HOME SCREEN WIDGET 1: HABIT CHECKLIST WIDGET PROVIDER
+// 7. HOME SCREEN WIDGETS (Habits Widget + Auto-Renewing Tasks Widget)
 // ============================================================================
 class HabitWidgetProvider : AppWidgetProvider() {
 
@@ -651,7 +708,7 @@ class HabitWidgetProvider : AppWidgetProvider() {
             val toggledTitle = storage.toggleHabitDirectlyFromWidget(habitId)
             if (toggledTitle != null) {
                 CelebrationSoundEngine.playCelebrationFanfare(context, isLevelUp = false)
-                Toast.makeText(context, "⚡ $toggledTitle Complete! +30 XP (Character Upgraded!)", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "⚡ $toggledTitle Complete! +35 XP (Hero Powered Up!)", Toast.LENGTH_SHORT).show()
             }
             updateAllWidgets(context)
         }
@@ -735,9 +792,6 @@ class HabitWidgetProvider : AppWidgetProvider() {
     }
 }
 
-// ============================================================================
-// 7. HOME SCREEN WIDGET 2: TO-DO TASKS MISSION WIDGET PROVIDER
-// ============================================================================
 class TaskWidgetProvider : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
@@ -752,7 +806,7 @@ class TaskWidgetProvider : AppWidgetProvider() {
             val completedTitle = storage.toggleTaskDirectlyFromWidget(taskId)
             if (completedTitle != null) {
                 CelebrationSoundEngine.playCelebrationFanfare(context, isLevelUp = false)
-                Toast.makeText(context, "🎯 Mission Accomplished: $completedTitle!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "🎯 Mission Complete: $completedTitle!", Toast.LENGTH_SHORT).show()
             }
             updateAllTaskWidgets(context)
         }
@@ -795,10 +849,11 @@ class TaskWidgetProvider : AppWidgetProvider() {
                         val (rowId, titleId, btnId) = rowIds[i]
                         if (i < tasks.size) {
                             val t = tasks[i]
+                            val renewIcon = if (t.isRecurring) " 🔄" else ""
                             views.setViewVisibility(rowId, View.VISIBLE)
                             views.setTextViewText(
                                 titleId,
-                                "[${t.priority.shortTag}] ${t.title}"
+                                "[${t.priority.shortTag}] ${t.title}$renewIcon"
                             )
                             views.setTextViewText(btnId, "✓")
                             views.setInt(
@@ -844,16 +899,33 @@ class StudioStorageManager(private val context: Context) {
     fun saveFullState(
         xp: Int,
         streakShields: Int,
+        bonusHeroStr: Int = 0,
+        bonusHeroInt: Int = 0,
+        bonusHeroWil: Int = 0,
+        bonusHeroVit: Int = 0,
         googleEmail: String?,
         autoBackup: Boolean,
         readingTheme: SanctuaryReadingTheme = SanctuaryReadingTheme.WARM_SEPIA,
         readingFontScale: Float = 1.0f,
         habits: List<Habit>,
         todos: List<TodoTask>,
+        hourlyLogs: List<HourlyLogItem>,
         journals: List<JournalEntry>,
         notes: List<NotebookEntry>
     ): String {
-        val root = serializeToJson(xp, streakShields, habits, todos, journals, notes)
+        val root = serializeToJson(
+            xp = xp,
+            streakShields = streakShields,
+            bonusHeroStr = bonusHeroStr,
+            bonusHeroInt = bonusHeroInt,
+            bonusHeroWil = bonusHeroWil,
+            bonusHeroVit = bonusHeroVit,
+            habits = habits,
+            todos = todos,
+            hourlyLogs = hourlyLogs,
+            journals = journals,
+            notes = notes
+        )
         val nowFormatted = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a"))
         prefs.edit()
             .putString("master_state_json", root.toString())
@@ -914,18 +986,31 @@ class StudioStorageManager(private val context: Context) {
     fun loadTasksOnly(): List<TodoTask> {
         val jsonStr = getSavedJson() ?: return emptyList()
         val result = mutableListOf<TodoTask>()
+        val todayStr = LocalDate.now().toString()
         try {
             val root = JSONObject(jsonStr)
             val todosArr = root.optJSONArray("todos") ?: JSONArray()
             for (i in 0 until todosArr.length()) {
                 val o = todosArr.getJSONObject(i)
+                val isRec = o.optBoolean("isRecurring", false)
+                val lastDate = o.optString("lastCompletedDate", "")
+                val rawCompleted = o.optBoolean("isCompleted", false)
+                // Auto-renew recurring tasks if completed on a previous day
+                val effectiveCompleted = if (isRec && rawCompleted && lastDate.isNotBlank() && lastDate != todayStr) {
+                    false
+                } else {
+                    rawCompleted
+                }
                 result.add(
                     TodoTask(
                         id = o.optString("id"),
                         title = o.optString("title"),
                         category = o.optString("category", "Personal"),
                         priority = runCatching { TodoPriority.valueOf(o.optString("priority")) }.getOrDefault(TodoPriority.P2_HIGH),
-                        isCompleted = o.optBoolean("isCompleted", false)
+                        isCompleted = effectiveCompleted,
+                        isRecurring = isRec,
+                        lastCompletedDate = lastDate,
+                        renewalStreak = o.optInt("renewalStreak", 0)
                     )
                 )
             }
@@ -971,7 +1056,7 @@ class StudioStorageManager(private val context: Context) {
             }
 
             if (completedHabitTitle != null) {
-                root.put("xp", root.optInt("xp", 420) + 30)
+                root.put("xp", root.optInt("xp", 460) + 35)
             }
             prefs.edit().putString("master_state_json", root.toString()).apply()
             return completedHabitTitle
@@ -985,6 +1070,7 @@ class StudioStorageManager(private val context: Context) {
         try {
             val root = JSONObject(jsonStr)
             val todosArr = root.optJSONArray("todos") ?: return null
+            val todayStr = LocalDate.now().toString()
             var newlyCompletedTitle: String? = null
 
             for (i in 0 until todosArr.length()) {
@@ -994,6 +1080,8 @@ class StudioStorageManager(private val context: Context) {
                     val nowDone = !wasDone
                     o.put("isCompleted", nowDone)
                     if (nowDone) {
+                        o.put("lastCompletedDate", todayStr)
+                        o.put("renewalStreak", o.optInt("renewalStreak", 0) + 1)
                         newlyCompletedTitle = o.optString("title")
                     }
                     break
@@ -1001,7 +1089,7 @@ class StudioStorageManager(private val context: Context) {
             }
 
             if (newlyCompletedTitle != null) {
-                root.put("xp", root.optInt("xp", 420) + 25)
+                root.put("xp", root.optInt("xp", 460) + 25)
             }
             prefs.edit().putString("master_state_json", root.toString()).apply()
             return newlyCompletedTitle
@@ -1034,16 +1122,25 @@ class StudioStorageManager(private val context: Context) {
     fun serializeToJson(
         xp: Int,
         streakShields: Int,
+        bonusHeroStr: Int,
+        bonusHeroInt: Int,
+        bonusHeroWil: Int,
+        bonusHeroVit: Int,
         habits: List<Habit>,
         todos: List<TodoTask>,
+        hourlyLogs: List<HourlyLogItem>,
         journals: List<JournalEntry>,
         notes: List<NotebookEntry>
     ): JSONObject {
         val root = JSONObject()
-        root.put("schemaVersion", 4)
+        root.put("schemaVersion", 5)
         root.put("exportedAt", System.currentTimeMillis())
         root.put("xp", xp)
         root.put("streakShields", streakShields)
+        root.put("bonusHeroStr", bonusHeroStr)
+        root.put("bonusHeroInt", bonusHeroInt)
+        root.put("bonusHeroWil", bonusHeroWil)
+        root.put("bonusHeroVit", bonusHeroVit)
 
         val habitsArr = JSONArray()
         habits.forEach { h ->
@@ -1087,12 +1184,26 @@ class StudioStorageManager(private val context: Context) {
                 put("reminderTime", t.reminderTime)
                 put("isCompleted", t.isCompleted)
                 put("isRecurring", t.isRecurring)
+                put("lastCompletedDate", t.lastCompletedDate)
+                put("renewalStreak", t.renewalStreak)
                 put("estimatedMinutes", t.estimatedMinutes)
                 put("subTasks", subArr)
                 put("notes", t.notes)
             })
         }
         root.put("todos", todosArr)
+
+        val hourlyArr = JSONArray()
+        hourlyLogs.forEach { hl ->
+            hourlyArr.put(JSONObject().apply {
+                put("id", hl.id)
+                put("date", hl.date)
+                put("hour24", hl.hour24)
+                put("activityNote", hl.activityNote)
+                put("status", hl.status.name)
+            })
+        }
+        root.put("hourlyLogs", hourlyArr)
 
         val journalsArr = JSONArray()
         journals.forEach { j ->
@@ -1144,12 +1255,13 @@ class StudioStorageManager(private val context: Context) {
 }
 
 // ============================================================================
-// 9. ALPHA STUDIO VIEWMODEL (Character Evolution, Focus Timer, Full Edit)
+// 9. ALPHA SUPERHERO VIEWMODEL (5 Sections, Auto-Renewal, Hourly Score, Hero Coach)
 // ============================================================================
 class HabitTrackerViewModel : ViewModel() {
 
     val habits = mutableStateListOf<Habit>()
     val todos = mutableStateListOf<TodoTask>()
+    val hourlyLogs = mutableStateListOf<HourlyLogItem>()
     val journals = mutableStateListOf<JournalEntry>()
     val notes = mutableStateListOf<NotebookEntry>()
 
@@ -1161,22 +1273,59 @@ class HabitTrackerViewModel : ViewModel() {
     val readingTheme = mutableStateOf(SanctuaryReadingTheme.WARM_SEPIA)
     val readingFontScale = mutableFloatStateOf(1.0f)
 
-    val userXp = mutableIntStateOf(460)
+    // Superhero XP & Manual Stat Upgrades
+    val userXp = mutableIntStateOf(520)
     val streakShields = mutableIntStateOf(3)
+    val bonusHeroStr = mutableIntStateOf(0)
+    val bonusHeroInt = mutableIntStateOf(0)
+    val bonusHeroWil = mutableIntStateOf(0)
+    val bonusHeroVit = mutableIntStateOf(0)
+    val customHeroQuote = mutableStateOf<String?>(null)
 
-    val userLevel: Int get() = (userXp.intValue / 200) + 1
-    val xpProgressInLevel: Float get() = (userXp.intValue % 200) / 200f
-    val userRankTitle: String
-        get() = getCharacterStats().stage.title
+    val userLevel: Int get() = (userXp.intValue.coerceAtLeast(0) / 200) + 1
+    val xpProgressInLevel: Float get() = ((userXp.intValue.coerceAtLeast(0)) % 200) / 200f
+    val userRankTitle: String get() = getCharacterStats().stage.title
+
+    private val heroMotivationalLines = listOf(
+        "“Every hour you guard makes my armor stronger. Let's crush today's mission list!”",
+        "“Don't let doomscrolling drain our XP! Lock in one Peak Flow hour right now.”",
+        "“Auto-renewing daily tasks are ready. Champions win the morning first!”",
+        "“Your consistency is forging the Omega Prime suit—keep the streak alive!”",
+        "“Log your hours honestly in the Day Audit. Awareness is our greatest superpower!”"
+    )
+
+    fun triggerNewHeroMotivation(context: Context) {
+        customHeroQuote.value = heroMotivationalLines.random()
+        CelebrationSoundEngine.playMotivationalReminderSound(context)
+    }
 
     /**
-     * Computes the user's live Alpha Character Evolution Stage & RPG Stats
-     * directly from their real habit streaks, completed tasks, journals, and notes.
+     * Allows the user to invest 50 XP into permanently boosting one of their
+     * Superhero's core powers (STR, INT, WIL, VIT).
      */
+    fun upgradeSuperheroPower(context: Context, statType: String) {
+        if (userXp.intValue < 50) {
+            Toast.makeText(context, "Earn at least 50 XP from Habits/Tasks to upgrade!", Toast.LENGTH_SHORT).show()
+            return
+        }
+        when (statType) {
+            "STR" -> bonusHeroStr.intValue += 15
+            "INT" -> bonusHeroInt.intValue += 15
+            "WIL" -> bonusHeroWil.intValue += 15
+            "VIT" -> bonusHeroVit.intValue += 15
+        }
+        userXp.intValue += 10 // Bonus mastery XP
+        CelebrationSoundEngine.playCelebrationFanfare(context, isLevelUp = true)
+        persistState(context)
+    }
+
     fun getCharacterStats(): AlphaCharacterStats {
         val lvl = userLevel
         val peakStreak = habits.maxOfOrNull { it.currentStreak() } ?: 0
         val totalStreakSum = habits.sumOf { it.currentStreak() }
+        val todayStr = LocalDate.now().toString()
+        val wastedToday = hourlyLogs.count { it.date == todayStr && (it.status == HourProductivityStatus.TIME_WASTED || it.status == HourProductivityStatus.LOW_FOCUS) }
+        val flowToday = hourlyLogs.count { it.date == todayStr && it.status == HourProductivityStatus.PEAK_FLOW }
 
         val stage = when {
             lvl >= 12 || peakStreak >= 30 -> CharacterStage.STAGE_6_SOVEREIGN
@@ -1192,15 +1341,26 @@ class HabitTrackerViewModel : ViewModel() {
         }.sumOf { it.logs.size }
         val intLogs = habits.filter {
             it.category.contains("Career", true) || it.category.contains("Growth", true)
-        }.sumOf { it.logs.size } + (notes.size * 5)
-        val wilLogs = totalStreakSum * 3 + todos.count { it.isCompleted } * 2
+        }.sumOf { it.logs.size } + (notes.size * 5) + (flowToday * 4)
+        val wilLogs = totalStreakSum * 3 + todos.count { it.isCompleted } * 3 - (wastedToday * 5)
         val vitLogs = journals.size * 5 + habits.size * 3
 
-        val str = (25 + strLogs * 2 + lvl * 4).coerceAtMost(999)
-        val intStat = (30 + intLogs * 2 + lvl * 4).coerceAtMost(999)
-        val wil = (28 + wilLogs + lvl * 5).coerceAtMost(999)
-        val vit = (25 + vitLogs * 2 + lvl * 3).coerceAtMost(999)
-        val power = (str + intStat + wil + vit) * 3 + userXp.intValue
+        val str = (35 + strLogs * 2 + lvl * 5 + bonusHeroStr.intValue).coerceAtLeast(10)
+        val intStat = (40 + intLogs * 2 + lvl * 5 + bonusHeroInt.intValue).coerceAtLeast(10)
+        val wil = (38 + wilLogs + lvl * 6 + bonusHeroWil.intValue).coerceAtLeast(10)
+        val vit = (35 + vitLogs * 2 + lvl * 4 + bonusHeroVit.intValue).coerceAtLeast(10)
+        val power = ((str + intStat + wil + vit) * 3 + userXp.intValue).coerceAtLeast(100)
+
+        val dynamicBubble = customHeroQuote.value ?: when {
+            wastedToday > 0 && flowToday == 0 ->
+                "⚠️ Alert! $wastedToday wasted hour(s) drained our energy today. Log a Peak Flow hour to recover!"
+            flowToday >= 2 ->
+                "🔥 Unstoppable! $flowToday Peak Flow hours logged today. My ${stage.suitName} is at maximum output!"
+            todos.any { !it.isCompleted && it.isRecurring } ->
+                "🔄 Your daily auto-renewing missions are active. Complete them to boost Willpower!"
+            else ->
+                "“I am ${stage.formName}. Every habit, task, and productive hour upgrades my ${stage.suitName}!”"
+        }
 
         return AlphaCharacterStats(
             stage = stage,
@@ -1210,8 +1370,123 @@ class HabitTrackerViewModel : ViewModel() {
             intellect = intStat,
             willpower = wil,
             vitality = vit,
-            activeStreakBonus = totalStreakSum
+            activeStreakBonus = totalStreakSum,
+            heroSpeechBubble = dynamicBubble
         )
+    }
+
+    // --- Daily Productivity Score Calculation (0..100%) ---
+    fun getDailyProductivityScore(date: LocalDate = selectedDate.value): Int {
+        val dateStr = date.toString()
+        val habitsDone = habits.count { it.isCompletedOn(date) }
+        val habitBase = if (habits.isEmpty()) 50 else ((habitsDone.toFloat() / habits.size) * 55f).toInt()
+        val tasksBonus = (todos.count { it.isCompleted } * 8).coerceAtMost(30)
+        val hourlyDelta = hourlyLogs.filter { it.date == dateStr }.sumOf { it.status.scoreDelta }
+        return (20 + habitBase + tasksBonus + hourlyDelta).coerceIn(0, 100)
+    }
+
+    fun getDailyProductivityGrade(score: Int): String = when {
+        score >= 90 -> "S+ SUPREME"
+        score >= 80 -> "A • EXCELLENT"
+        score >= 65 -> "B • SOLID"
+        score >= 45 -> "C • AVERAGE"
+        else -> "D • NEEDS FOCUS"
+    }
+
+    // --- Hourly Productivity Ledger Operations ---
+    fun logOrUpdateHour(
+        context: Context,
+        hour24: Int,
+        activityNote: String,
+        status: HourProductivityStatus,
+        date: LocalDate = selectedDate.value
+    ) {
+        val dateStr = date.toString()
+        val existingIdx = hourlyLogs.indexOfFirst { it.date == dateStr && it.hour24 == hour24 }
+        val previousXpDelta = if (existingIdx != -1) hourlyLogs[existingIdx].status.xpDelta else 0
+
+        val newItem = HourlyLogItem(
+            id = if (existingIdx != -1) hourlyLogs[existingIdx].id else UUID.randomUUID().toString(),
+            date = dateStr,
+            hour24 = hour24,
+            activityNote = activityNote.ifBlank { status.label },
+            status = status
+        )
+
+        if (existingIdx != -1) {
+            hourlyLogs[existingIdx] = newItem
+        } else {
+            hourlyLogs.add(newItem)
+        }
+        hourlyLogs.sortBy { it.hour24 }
+
+        // Adjust XP by the net change
+        val netXpChange = status.xpDelta - previousXpDelta
+        userXp.intValue = (userXp.intValue + netXpChange).coerceAtLeast(0)
+
+        if (status.xpDelta > 0) {
+            awardXpAndCelebrate(
+                context = context,
+                title = "⚡ Productive Hour Logged!",
+                subtitle = "${newItem.formattedHourRange()} • ${status.shortBadge} added to Superhero!",
+                xpEarned = 0 // Already applied netXpChange above
+            )
+        } else if (status.xpDelta < 0) {
+            CelebrationSoundEngine.playPenaltyDrainSound(context)
+            Toast.makeText(
+                context,
+                "⚠️ ${status.xpDelta} XP Penalty! Unproductive hour deducted from your score.",
+                Toast.LENGTH_LONG
+            ).show()
+            persistState(context)
+        } else {
+            persistState(context)
+        }
+    }
+
+    fun deleteHourlyLog(context: Context, id: String) {
+        val idx = hourlyLogs.indexOfFirst { it.id == id }
+        if (idx != -1) {
+            val removed = hourlyLogs.removeAt(idx)
+            userXp.intValue = (userXp.intValue - removed.status.xpDelta).coerceAtLeast(0)
+            persistState(context)
+        }
+    }
+
+    // --- Auto-Renewing Daily Tasks Engine ---
+    fun checkAndAutoRenewDailyTasks(context: Context, forceRenewForTesting: Boolean = false) {
+        val todayStr = LocalDate.now().toString()
+        var renewedCount = 0
+
+        for (i in todos.indices) {
+            val t = todos[i]
+            val shouldRenew = t.isRecurring && t.isCompleted && (forceRenewForTesting || (t.lastCompletedDate.isNotBlank() && t.lastCompletedDate != todayStr))
+            if (shouldRenew) {
+                todos[i] = t.copy(
+                    isCompleted = false,
+                    date = todayStr,
+                    subTasks = t.subTasks.map { it.copy(isDone = false) }
+                )
+                renewedCount++
+            }
+        }
+
+        if (renewedCount > 0) {
+            persistState(context)
+            if (forceRenewForTesting) {
+                Toast.makeText(
+                    context,
+                    "🔄 $renewedCount Auto-Renewing task(s) refreshed for the new day!",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        } else if (forceRenewForTesting) {
+            Toast.makeText(
+                context,
+                "Complete a 🔄 Daily Auto-Renew task first to test next-day renewal!",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
     }
 
     // Pomodoro Timer
@@ -1248,6 +1523,8 @@ class HabitTrackerViewModel : ViewModel() {
         if (!savedJson.isNullOrBlank()) {
             restoreFromJsonString(savedJson)
             isInitialized = true
+            // Automatically renew any daily recurring tasks completed on a previous day!
+            checkAndAutoRenewDailyTasks(context, forceRenewForTesting = false)
         } else if (!isInitialized) {
             isInitialized = true
             seedStarterTemplates()
@@ -1255,19 +1532,22 @@ class HabitTrackerViewModel : ViewModel() {
         }
     }
 
-    fun initializeIfNeeded(context: Context) = initializeOrRefreshFromDisk(context)
-
     fun persistState(context: Context): String {
         val storage = StudioStorageManager(context)
         val json = storage.saveFullState(
             xp = userXp.intValue,
             streakShields = streakShields.intValue,
+            bonusHeroStr = bonusHeroStr.intValue,
+            bonusHeroInt = bonusHeroInt.intValue,
+            bonusHeroWil = bonusHeroWil.intValue,
+            bonusHeroVit = bonusHeroVit.intValue,
             googleEmail = connectedGoogleEmail.value,
             autoBackup = autoCloudSync.value,
             readingTheme = readingTheme.value,
             readingFontScale = readingFontScale.floatValue,
             habits = habits,
             todos = todos,
+            hourlyLogs = hourlyLogs,
             journals = journals,
             notes = notes
         )
@@ -1278,8 +1558,12 @@ class HabitTrackerViewModel : ViewModel() {
     fun restoreFromJsonString(jsonStr: String): Boolean {
         return try {
             val root = JSONObject(jsonStr)
-            userXp.intValue = root.optInt("xp", 460)
+            userXp.intValue = root.optInt("xp", 520)
             streakShields.intValue = root.optInt("streakShields", 3)
+            bonusHeroStr.intValue = root.optInt("bonusHeroStr", 0)
+            bonusHeroInt.intValue = root.optInt("bonusHeroInt", 0)
+            bonusHeroWil.intValue = root.optInt("bonusHeroWil", 0)
+            bonusHeroVit.intValue = root.optInt("bonusHeroVit", 0)
 
             habits.clear()
             val habitsArr = root.optJSONArray("habits") ?: JSONArray()
@@ -1328,9 +1612,27 @@ class HabitTrackerViewModel : ViewModel() {
                         reminderTime = o.optString("reminderTime", ""),
                         isCompleted = o.optBoolean("isCompleted", false),
                         isRecurring = o.optBoolean("isRecurring", false),
+                        lastCompletedDate = o.optString("lastCompletedDate", ""),
+                        renewalStreak = o.optInt("renewalStreak", 0),
                         estimatedMinutes = o.optInt("estimatedMinutes", 25),
                         subTasks = subs,
                         notes = o.optString("notes", "")
+                    )
+                )
+            }
+
+            hourlyLogs.clear()
+            val hourlyArr = root.optJSONArray("hourlyLogs") ?: JSONArray()
+            for (i in 0 until hourlyArr.length()) {
+                val o = hourlyArr.getJSONObject(i)
+                hourlyLogs.add(
+                    HourlyLogItem(
+                        id = o.optString("id", UUID.randomUUID().toString()),
+                        date = o.optString("date", LocalDate.now().toString()),
+                        hour24 = o.optInt("hour24", 9),
+                        activityNote = o.optString("activityNote", ""),
+                        status = runCatching { HourProductivityStatus.valueOf(o.optString("status")) }
+                            .getOrDefault(HourProductivityStatus.PRODUCTIVE)
                     )
                 )
             }
@@ -1423,16 +1725,16 @@ class HabitTrackerViewModel : ViewModel() {
         if (leveledUp) streakShields.intValue += 1
 
         celebrationTitle.value = when {
-            newStage != oldStage -> "⚡ CHARACTER EVOLVED: ${newStage.formName.uppercase()}!"
-            newLevel > oldLevel -> "🎉 ALPHA LEVEL $newLevel UNLOCKED!"
+            newStage != oldStage -> "🦸 SUPERHERO UPGRADED: ${newStage.formName.uppercase()}!"
+            newLevel > oldLevel -> "🎉 HERO LEVEL $newLevel UNLOCKED!"
             else -> title
         }
         celebrationSubtitle.value = when {
-            newStage != oldStage -> "Unlocked ${newStage.weaponOrGear} • +1 Streak Shield!"
-            newLevel > oldLevel -> "Rank: ${newStage.title} • Power Increased!"
+            newStage != oldStage -> "Unlocked ${newStage.suitName} & ${newStage.superpower}!"
+            newLevel > oldLevel -> "Superhero Rank: ${newStage.title} • Power Surging!"
             else -> subtitle
         }
-        celebrationXpEarned.intValue = xpEarned
+        celebrationXpEarned.intValue = if (xpEarned == 0) 25 else xpEarned
         showCelebration.value = true
 
         CelebrationSoundEngine.playCelebrationFanfare(context, isLevelUp = leveledUp)
@@ -1488,8 +1790,8 @@ class HabitTrackerViewModel : ViewModel() {
                 }
                 awardXpAndCelebrate(
                     context = context,
-                    title = "⏱️ Alpha Focus Complete!",
-                    subtitle = "${activeFocusTitle.value} finished • Character INT +5",
+                    title = "⏱️ Superhero Focus Complete!",
+                    subtitle = "${activeFocusTitle.value} finished • Hero Intellect +5",
                     xpEarned = 45
                 )
             }
@@ -1529,7 +1831,7 @@ class HabitTrackerViewModel : ViewModel() {
             awardXpAndCelebrate(
                 context = context,
                 title = "${updated.emoji} ${updated.title} Crushed!",
-                subtitle = "🔥 ${updated.currentStreak()}-day streak • Alpha Character Power Up!",
+                subtitle = "🔥 ${updated.currentStreak()}-day streak • Superhero Armor Upgraded!",
                 xpEarned = 35
             )
         } else {
@@ -1624,17 +1926,26 @@ class HabitTrackerViewModel : ViewModel() {
         persistState(context)
     }
 
-    // --- To-Do Operations ---
+    // --- To-Do Operations (With Daily Auto-Renewal Tracking) ---
     fun toggleTodo(context: Context, task: TodoTask) {
         val idx = todos.indexOfFirst { it.id == task.id }
         if (idx == -1) return
         val nowDone = !task.isCompleted
-        todos[idx] = task.copy(isCompleted = nowDone)
+        val todayStr = LocalDate.now().toString()
+        val newStreak = if (nowDone) task.renewalStreak + 1 else (task.renewalStreak - 1).coerceAtLeast(0)
+
+        todos[idx] = task.copy(
+            isCompleted = nowDone,
+            lastCompletedDate = if (nowDone) todayStr else task.lastCompletedDate,
+            renewalStreak = newStreak
+        )
+
         if (nowDone) {
+            val renewNote = if (task.isRecurring) " • 🔄 Will auto-renew tomorrow!" else ""
             awardXpAndCelebrate(
                 context = context,
                 title = "🎯 Mission Accomplished!",
-                subtitle = "\"${task.title}\" completed • Character WIL +3",
+                subtitle = "\"${task.title}\" completed$renewNote",
                 xpEarned = task.priority.xpReward
             )
         } else {
@@ -1650,7 +1961,14 @@ class HabitTrackerViewModel : ViewModel() {
         }
         val allDone = updatedSubs.isNotEmpty() && updatedSubs.all { it.isDone }
         val wasDone = task.isCompleted
-        todos[idx] = task.copy(subTasks = updatedSubs, isCompleted = allDone)
+        val todayStr = LocalDate.now().toString()
+
+        todos[idx] = task.copy(
+            subTasks = updatedSubs,
+            isCompleted = allDone,
+            lastCompletedDate = if (allDone) todayStr else task.lastCompletedDate,
+            renewalStreak = if (!wasDone && allDone) task.renewalStreak + 1 else task.renewalStreak
+        )
         if (!wasDone && allDone) {
             awardXpAndCelebrate(
                 context = context,
@@ -1787,7 +2105,8 @@ class HabitTrackerViewModel : ViewModel() {
                     TodoTask(
                         title = act.trim(),
                         category = "Reflection Action",
-                        priority = TodoPriority.P1_CRITICAL
+                        priority = TodoPriority.P1_CRITICAL,
+                        isRecurring = false
                     )
                 )
             }
@@ -1796,7 +2115,7 @@ class HabitTrackerViewModel : ViewModel() {
         awardXpAndCelebrate(
             context = context,
             title = "📓 Sanctuary Reflection Saved!",
-            subtitle = "Character VIT +5 • Self-mastery unlocked",
+            subtitle = "Hero Vitality +5 • Self-mastery unlocked",
             xpEarned = 35
         )
     }
@@ -1824,7 +2143,7 @@ class HabitTrackerViewModel : ViewModel() {
         awardXpAndCelebrate(
             context = context,
             title = "🧠 Saved to Knowledge Vault!",
-            subtitle = "Character INT +5 • \"${entry.title}\" indexed",
+            subtitle = "Hero Intellect +5 • \"${entry.title}\" indexed",
             xpEarned = 35
         )
     }
@@ -1853,6 +2172,8 @@ class HabitTrackerViewModel : ViewModel() {
 
     private fun seedStarterTemplates() {
         val today = LocalDate.now()
+        val todayStr = today.toString()
+
         val deepWorkLogs = mutableMapOf<String, Float>()
         for (i in 1..21) {
             if (i % 4 != 0) deepWorkLogs[today.minusDays(i.toLong()).toString()] = 90f
@@ -1897,7 +2218,7 @@ class HabitTrackerViewModel : ViewModel() {
 
         val waterLogs = mutableMapOf<String, Float>()
         for (i in 1..15) waterLogs[today.minusDays(i.toLong()).toString()] = 3.0f
-        waterLogs[today.toString()] = 1.5f
+        waterLogs[todayStr] = 1.5f
         habits.add(
             Habit(
                 title = "Hydration Protocol",
@@ -1915,38 +2236,81 @@ class HabitTrackerViewModel : ViewModel() {
             )
         )
 
+        // Starter Tasks with Auto-Renew Every Day enabled
         todos.addAll(
             listOf(
+                TodoTask(
+                    title = "Plan Top 3 High-Impact Outcomes",
+                    category = "Daily Ritual",
+                    priority = TodoPriority.P1_CRITICAL,
+                    reminderTime = "08:30",
+                    isRecurring = true,
+                    renewalStreak = 7,
+                    estimatedMinutes = 15,
+                    subTasks = listOf(
+                        SubTask(title = "Review calendar & deadlines", isDone = true),
+                        SubTask(title = "Lock in 90m maker block")
+                    )
+                ),
+                TodoTask(
+                    title = "Read 20 Pages & Log Vault Summary",
+                    category = "Growth",
+                    priority = TodoPriority.P2_HIGH,
+                    reminderTime = "21:00",
+                    isRecurring = true,
+                    renewalStreak = 12,
+                    estimatedMinutes = 30
+                ),
                 TodoTask(
                     title = "Complete morning high-leverage project block",
                     category = "Deep Work",
                     priority = TodoPriority.P1_CRITICAL,
-                    reminderTime = "09:00",
-                    estimatedMinutes = 45,
-                    subTasks = listOf(
-                        SubTask(title = "Review daily goals", isDone = true),
-                        SubTask(title = "Ship core feature module")
-                    )
+                    reminderTime = "09:30",
+                    isRecurring = false,
+                    estimatedMinutes = 45
+                )
+            )
+        )
+
+        // Starter Hourly Productivity Logs for Today
+        hourlyLogs.addAll(
+            listOf(
+                HourlyLogItem(
+                    date = todayStr,
+                    hour24 = 7,
+                    activityNote = "Morning hydration, sunlight & mobility routine",
+                    status = HourProductivityStatus.PRODUCTIVE
                 ),
-                TodoTask(
-                    title = "Evening mobility & tomorrow's top 3 priorities",
-                    category = "Health",
-                    priority = TodoPriority.P2_HIGH,
-                    reminderTime = "20:30",
-                    estimatedMinutes = 20
+                HourlyLogItem(
+                    date = todayStr,
+                    hour24 = 8,
+                    activityNote = "90m Deep Work coding sprint with zero phone checks",
+                    status = HourProductivityStatus.PEAK_FLOW
+                ),
+                HourlyLogItem(
+                    date = todayStr,
+                    hour24 = 9,
+                    activityNote = "Shipped core architecture & reviewed metrics",
+                    status = HourProductivityStatus.PEAK_FLOW
+                ),
+                HourlyLogItem(
+                    date = todayStr,
+                    hour24 = 13,
+                    activityNote = "Scrolled social media after lunch for 35 mins",
+                    status = HourProductivityStatus.LOW_FOCUS
                 )
             )
         )
 
         journals.add(
             JournalEntry(
-                title = "Alpha Momentum & Evening Reflection",
+                title = "Superhero Momentum & Hourly Audit",
                 moodEmoji = "🔥",
                 energyScore = 9,
-                gratitudeOrWins = "Completed my morning deep-work sprint without checking messages.",
-                dailyStory = "Today felt grounded and productive. Watching my Alpha character upgrade as my streaks grow makes staying disciplined effortless.",
-                frictionOrMistakes = "Delayed evening stretching by 20 minutes.",
-                actionItems = listOf("Start evening wind-down alarm at 9:30 PM")
+                gratitudeOrWins = "Locked in two back-to-back Peak Flow hours this morning.",
+                dailyStory = "Tracking each hour in the Day Audit makes me super conscious of how I spend my afternoon. Watching my Superhero suit upgrade with every productive hour is awesome motivation.",
+                frictionOrMistakes = "Lost 15 XP at 1:00 PM from post-lunch scrolling.",
+                actionItems = listOf("Take a 10-minute walk after lunch instead of opening social media")
             )
         )
 
