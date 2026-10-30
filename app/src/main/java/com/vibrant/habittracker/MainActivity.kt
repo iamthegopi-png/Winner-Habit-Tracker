@@ -1032,63 +1032,275 @@ fun SuperheroPowerUpgradeRow(
 // 5-TAB BOTTOM NAVIGATION DOCK (Habits, Tasks, Day Audit, Journal, Vault)
 // ============================================================================
 @Composable
-fun StudioFiveTabBottomDock(
-    currentTab: Int,
-    onSelectTab: (Int) -> Unit
+fun StudioDayProductivityAuditSection(
+    vm: HabitTrackerViewModel,
+    onOpenSuperheroSheet: () -> Unit
 ) {
-    Surface(
-        color = AppColors.BgSurface.copy(alpha = 0.96f),
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        border = BorderStroke(1.dp, AppColors.BorderSubtle),
-        modifier = Modifier.fillMaxWidth()
+    val context = LocalContext.current
+    val selectedDate = vm.selectedDate.value
+    val today = LocalDate.now()
+    val dateStr = selectedDate.toString()
+    val formattedDate = selectedDate.format(DateTimeFormatter.ofPattern("EEE, dd MMM yyyy"))
+
+    val dayScore = vm.getDailyProductivityScore(selectedDate)
+    val grade = vm.getDailyProductivityGrade(dayScore)
+
+    val logsForDay = remember(vm.hourlyLogs.toList(), dateStr) {
+        vm.hourlyLogs.filter { it.date == dateStr }.associateBy { it.hour24 }
+    }
+
+    val peakHours = logsForDay.values.count {
+        it.status == HourProductivityStatus.PEAK_FLOW || it.status == HourProductivityStatus.PRODUCTIVE
+    }
+    val wastedHours = logsForDay.values.count {
+        it.status == HourProductivityStatus.TIME_WASTED || it.status == HourProductivityStatus.LOW_FOCUS
+    }
+    val netXpDay = logsForDay.values.sumOf { it.status.xpDelta }
+
+    var editingHour24 by remember { mutableStateOf<Int?>(null) }
+
+    val scoreColor = when {
+        dayScore >= 80 -> AppColors.MintGlow
+        dayScore >= 55 -> AppColors.CyberCyan
+        dayScore >= 40 -> AppColors.SolarGold
+        else -> AppColors.CrimsonRose
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 9.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            val items = listOf(
-                Triple(0, "Habits", Icons.Default.GridOn),
-                Triple(1, "Tasks", Icons.Default.CheckCircle),
-                Triple(2, "Day Audit", Icons.Default.Timer),
-                Triple(3, "Journal", Icons.Default.Edit),
-                Triple(4, "Vault", Icons.Default.Star)
-            )
-
-            items.forEach { (index, title, icon) ->
-                val selected = currentTab == index
-                val pillBg by animateColorAsState(
-                    if (selected) AppColors.MintGlow.copy(alpha = 0.16f) else Color.Transparent,
-                    label = "dockBg"
-                )
-                val tint by animateColorAsState(
-                    if (selected) AppColors.MintGlow else AppColors.TextSecondary,
-                    label = "dockTint"
-                )
-
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
+        // 1. Date Navigator Bar (< Previous Day | Date Picker | Next Day >)
+        item {
+            Surface(
+                color = AppColors.BgCard,
+                shape = RoundedCornerShape(18.dp),
+                border = BorderStroke(1.dp, AppColors.BorderSubtle),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(pillBg)
-                        .clickable { onSelectTab(index) }
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Icon(icon, null, tint = tint, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = title,
-                        color = tint,
-                        fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Medium,
-                        fontSize = 11.sp
-                    )
+                    IconButton(onClick = { vm.selectedDate.value = selectedDate.minusDays(1) }) {
+                        Icon(Icons.Default.ChevronLeft, contentDescription = "Previous Day", tint = AppColors.TextPrimary)
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable {
+                                android.app.DatePickerDialog(
+                                    context,
+                                    { _, year, month, dayOfMonth ->
+                                        vm.selectedDate.value = LocalDate.of(year, month + 1, dayOfMonth)
+                                    },
+                                    selectedDate.year,
+                                    selectedDate.monthValue - 1,
+                                    selectedDate.dayOfMonth
+                                ).show()
+                            }
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        Icon(Icons.Default.DateRange, null, tint = AppColors.CyberCyan, modifier = Modifier.size(18.dp))
+                        Text(
+                            text = if (selectedDate == today) "Today ($formattedDate)" else formattedDate,
+                            color = AppColors.TextPrimary,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 14.sp
+                        )
+                    }
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (selectedDate != today) {
+                            TextButton(onClick = { vm.selectedDate.value = today }) {
+                                Text("Today", color = AppColors.MintGlow, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        IconButton(
+                            onClick = {
+                                if (selectedDate.isBefore(today)) {
+                                    vm.selectedDate.value = selectedDate.plusDays(1)
+                                }
+                            },
+                            enabled = selectedDate.isBefore(today)
+                        ) {
+                            Icon(
+                                Icons.Default.ChevronRight,
+                                contentDescription = "Next Day",
+                                tint = if (selectedDate.isBefore(today)) AppColors.TextPrimary else AppColors.TextMuted
+                            )
+                        }
+                    }
                 }
             }
         }
+
+        // 2. Daily Productivity Score & Penalty Dashboard Card
+        item {
+            Surface(
+                color = AppColors.BgCard,
+                shape = RoundedCornerShape(24.dp),
+                border = BorderStroke(1.5.dp, scoreColor.copy(alpha = 0.6f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(18.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "📊 PRODUCTIVITY REPORT • ${formattedDate.uppercase()}",
+                                color = scoreColor,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = "Grade: $grade",
+                                color = AppColors.TextPrimary,
+                                fontSize = 21.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            Text(
+                                text = "Log every hour. Unproductive hours deduct score & Superhero XP!",
+                                color = AppColors.TextSecondary,
+                                fontSize = 11.sp
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier.size(74.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Canvas(modifier = Modifier.fillMaxSize()) {
+                                val stroke = 7.dp.toPx()
+                                drawCircle(color = AppColors.BgCardElevated, style = Stroke(stroke))
+                                drawArc(
+                                    color = scoreColor,
+                                    startAngle = -90f,
+                                    sweepAngle = 360f * (dayScore / 100f),
+                                    useCenter = false,
+                                    style = Stroke(width = stroke, cap = StrokeCap.Round)
+                                )
+                            }
+                            Text(
+                                text = "$dayScore%",
+                                color = AppColors.TextPrimary,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 17.sp
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(14.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        AuditStatPill(
+                            modifier = Modifier.weight(1f),
+                            title = "🔥 Productive",
+                            value = "$peakHours hrs",
+                            color = AppColors.MintGlow
+                        )
+                        AuditStatPill(
+                            modifier = Modifier.weight(1f),
+                            title = "💀 Wasted",
+                            value = "$wastedHours hrs",
+                            color = AppColors.CrimsonRose
+                        )
+                        AuditStatPill(
+                            modifier = Modifier.weight(1f),
+                            title = "⚡ Net Hero XP",
+                            value = if (netXpDay >= 0) "+$netXpDay XP" else "$netXpDay XP",
+                            color = if (netXpDay >= 0) AppColors.SolarGold else AppColors.CrimsonRose
+                        )
+                    }
+                }
+            }
+        }
+
+        // 3. Hour-by-Hour Timeline Header
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "⏰ Hourly Activity Ledger (6 AM – 11 PM)",
+                    color = AppColors.TextPrimary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
+                )
+                Text(
+                    text = "Tap any hour to edit",
+                    color = AppColors.CyberCyan,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+
+        // 4. 18 Interactive Hour Slots (06:00 to 23:00)
+        val hoursList = (6..23).toList()
+        items(hoursList, key = { "$dateStr-$it" }) { hour24 ->
+            val loggedItem = logsForDay[hour24]
+            HourlySlotCard(
+                hour24 = hour24,
+                loggedItem = loggedItem,
+                onClick = { editingHour24 = hour24 },
+                onQuickPenalty = {
+                    vm.logOrUpdateHour(
+                        context = context,
+                        hour24 = hour24,
+                        activityNote = "Wasted time / Unproductive hour",
+                        status = HourProductivityStatus.TIME_WASTED,
+                        date = selectedDate
+                    )
+                },
+                onQuickFlow = {
+                    vm.logOrUpdateHour(
+                        context = context,
+                        hour24 = hour24,
+                        activityNote = "Focused productive work block",
+                        status = HourProductivityStatus.PEAK_FLOW,
+                        date = selectedDate
+                    )
+                }
+            )
+        }
+
+        item { Spacer(Modifier.height(28.dp)) }
+    }
+
+    editingHour24?.let { hour ->
+        LogHourActivityDialog(
+            hour24 = hour,
+            existingLog = logsForDay[hour],
+            onDismiss = { editingHour24 = null },
+            onSave = { note, status ->
+                vm.logOrUpdateHour(context, hour, note, status, selectedDate)
+                editingHour24 = null
+            },
+            onDelete = {
+                logsForDay[hour]?.let { vm.deleteHourlyLog(context, it.id) }
+                editingHour24 = null
+            }
+        )
     }
 }
+
 
 @Composable
 fun ActiveFocusTimerBanner(vm: HabitTrackerViewModel, onExpand: () -> Unit) {
