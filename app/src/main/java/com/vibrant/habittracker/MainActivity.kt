@@ -1,7 +1,9 @@
 package com.vibrant.habittracker
 
 import android.Manifest
+import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -229,11 +231,28 @@ fun AlphaSuperheroStudioApp(vm: HabitTrackerViewModel = viewModel()) {
             StudioCreateOrEditHabitDialog(
                 habitToEdit = editingHabit,
                 onDismiss = {
+                    CelebrationSoundEngine.stopActiveCustomSound()
                     showHabitDialog = false
                     editingHabit = null
                 },
-                onSave = { id, title, emoji, cat, tod, cue, type, col, target, unit, step, reminder ->
-                    vm.saveOrUpdateHabit(context, id, title, emoji, cat, tod, cue, type, col, target, unit, step, reminder)
+                onSave = { id, title, emoji, cat, tod, cue, type, col, target, unit, step, reminder, customSound ->
+                    CelebrationSoundEngine.stopActiveCustomSound()
+                    vm.saveOrUpdateHabit(
+                        context = context,
+                        existingId = id,
+                        title = title,
+                        emoji = emoji,
+                        category = cat,
+                        timeOfDay = tod,
+                        cue = cue,
+                        type = type,
+                        colorHex = col,
+                        targetValue = target,
+                        unit = unit,
+                        stepSize = step,
+                        reminderTime = reminder,
+                        customSoundUri = customSound
+                    )
                     showHabitDialog = false
                     editingHabit = null
                 }
@@ -251,7 +270,10 @@ fun AlphaSuperheroStudioApp(vm: HabitTrackerViewModel = viewModel()) {
                 xpEarned = vm.celebrationXpEarned.intValue,
                 level = vm.userLevel,
                 rank = vm.userRankTitle,
-                onDismiss = { vm.showCelebration.value = false }
+                onDismiss = {
+                    CelebrationSoundEngine.stopActiveCustomSound()
+                    vm.showCelebration.value = false
+                }
             )
         }
     }
@@ -460,7 +482,6 @@ fun AlphaSuperheroCanvas(
         val cx = w * 0.5f
         val cy = h * 0.54f
 
-        // 1. Multi-Layered Cosmic / Bio-Electric Aura Behind Superhero
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(
@@ -484,7 +505,6 @@ fun AlphaSuperheroCanvas(
             )
         }
 
-        // 2. Flowing Superhero Cape ( Billowing behind shoulders )
         val capePath = Path().apply {
             moveTo(cx - w * 0.22f, cy - h * 0.14f)
             lineTo(cx + w * 0.22f, cy - h * 0.14f)
@@ -507,7 +527,6 @@ fun AlphaSuperheroCanvas(
             style = Stroke(width = 1.8.dp.toPx(), join = StrokeJoin.Round)
         )
 
-        // Stage 5+ Celestial Solar Wings
         if (stage.stageNumber >= 5) {
             val leftWing = Path().apply {
                 moveTo(cx - w * 0.18f, cy - h * 0.12f)
@@ -529,7 +548,6 @@ fun AlphaSuperheroCanvas(
             drawPath(rightWing, brush = Brush.linearGradient(listOf(AppColors.SolarGold, primary)))
         }
 
-        // 3. Sculpted V-Taper Superhero Armored Torso & Pauldrons
         val shoulderHalf = w * (0.27f + stage.stageNumber * 0.012f)
         val waistHalf = w * 0.15f
         val torsoPath = Path().apply {
@@ -554,7 +572,6 @@ fun AlphaSuperheroCanvas(
             style = Stroke(width = 2.4.dp.toPx(), join = StrokeJoin.Round)
         )
 
-        // Armored Shoulder Pauldrons
         val leftPauldron = Path().apply {
             moveTo(cx - shoulderHalf * 1.08f, cy - h * 0.10f)
             lineTo(cx - shoulderHalf * 0.55f, cy - h * 0.19f)
@@ -570,7 +587,6 @@ fun AlphaSuperheroCanvas(
         drawPath(leftPauldron, color = primary.copy(alpha = 0.85f))
         drawPath(rightPauldron, color = primary.copy(alpha = 0.85f))
 
-        // 4. Iconic Superhero Chest Emblem (Glowing Diamond Shield + Alpha Bolt)
         val crestTop = cy - h * 0.08f
         val crestBot = cy + h * 0.12f
         val chestShield = Path().apply {
@@ -583,7 +599,6 @@ fun AlphaSuperheroCanvas(
         drawPath(chestShield, color = secondary)
         drawPath(chestShield, color = Color.White, style = Stroke(width = 1.6.dp.toPx()))
 
-        // Utility Belt (Superhero Waistline)
         drawLine(
             color = AppColors.SolarGold,
             start = Offset(cx - waistHalf, cy + h * 0.24f),
@@ -592,21 +607,16 @@ fun AlphaSuperheroCanvas(
             cap = StrokeCap.Round
         )
 
-        // 5. Sculpted Superhero Cowl / Mask & Glowing Eyes
         val headTop = cy - h * 0.42f
         val headBot = cy - h * 0.16f
         val cowlPath = Path().apply {
-            // Left ear fin
             moveTo(cx - w * 0.14f, headTop + h * 0.06f)
             lineTo(cx - w * 0.17f, headTop - h * 0.05f)
             lineTo(cx - w * 0.09f, headTop + h * 0.02f)
-            // Crown
             lineTo(cx, headTop)
             lineTo(cx + w * 0.09f, headTop + h * 0.02f)
-            // Right ear fin
             lineTo(cx + w * 0.17f, headTop - h * 0.05f)
             lineTo(cx + w * 0.14f, headTop + h * 0.06f)
-            // Jawline
             lineTo(cx + w * 0.13f, headBot - h * 0.04f)
             lineTo(cx, headBot + h * 0.02f)
             lineTo(cx - w * 0.13f, headBot - h * 0.04f)
@@ -615,7 +625,6 @@ fun AlphaSuperheroCanvas(
         drawPath(cowlPath, color = Color(0xFF0F172A))
         drawPath(cowlPath, color = primary, style = Stroke(width = 2.2.dp.toPx(), join = StrokeJoin.Round))
 
-        // Angular Glowing Superhero Eyes
         val eyeY = (headTop + headBot) * 0.52f
         drawLine(
             color = secondary,
@@ -632,10 +641,9 @@ fun AlphaSuperheroCanvas(
             cap = StrokeCap.Round
         )
 
-        // 6. Glowing Energy Gauntlets / Fists (Left & Right)
         drawCircle(
             brush = Brush.radialGradient(
-                colors = listOf( Color.White, secondary, Color.Transparent),
+                colors = listOf(Color.White, secondary, Color.Transparent),
                 center = Offset(cx - shoulderHalf * 1.05f, cy + h * 0.12f),
                 radius = w * 0.11f
             ),
@@ -652,7 +660,6 @@ fun AlphaSuperheroCanvas(
             center = Offset(cx + shoulderHalf * 1.05f, cy + h * 0.12f)
         )
 
-        // Stage 6 Omega Crown Halo
         if (stage.stageNumber >= 6) {
             drawCircle(
                 color = AppColors.SolarGold,
@@ -750,7 +757,6 @@ fun AlphaCharacterHeroCard(
 
             Spacer(Modifier.height(10.dp))
 
-            // Interactive Superhero Motivational Coach Speech Bubble
             Surface(
                 color = AppColors.BgCardElevated,
                 shape = RoundedCornerShape(14.dp),
@@ -882,7 +888,6 @@ fun AlphaSuperheroHeadquartersModal(
 
                 Spacer(Modifier.height(14.dp))
 
-                // Interactive Power Upgrade Buttons
                 Surface(
                     color = AppColors.BgCard,
                     shape = RoundedCornerShape(20.dp),
@@ -931,7 +936,6 @@ fun AlphaSuperheroHeadquartersModal(
 
                 Spacer(Modifier.height(16.dp))
 
-                // All 6 Superhero Suits Roadmap
                 Surface(
                     color = AppColors.BgCard,
                     shape = RoundedCornerShape(20.dp),
@@ -1134,7 +1138,7 @@ fun ActiveFocusTimerBanner(vm: HabitTrackerViewModel, onExpand: () -> Unit) {
 }
 
 // ============================================================================
-// NEW SECTION 3 (TAB 2): HOURLY DAY PRODUCTIVITY AUDIT & PENALTY LEDGER
+// SECTION 3 (TAB 2): HOURLY DAY PRODUCTIVITY AUDIT (WITH PAST-DAY NAVIGATOR)
 // ============================================================================
 @Composable
 fun StudioDayProductivityAuditSection(
@@ -1201,7 +1205,7 @@ fun StudioDayProductivityAuditSection(
                         modifier = Modifier
                             .clip(RoundedCornerShape(10.dp))
                             .clickable {
-                                android.app.DatePickerDialog(
+                                DatePickerDialog(
                                     context,
                                     { _, year, month, dayOfMonth ->
                                         vm.selectedDate.value = LocalDate.of(year, month + 1, dayOfMonth)
@@ -1405,6 +1409,7 @@ fun StudioDayProductivityAuditSection(
         )
     }
 }
+
 @Composable
 fun AuditStatPill(
     modifier: Modifier,
@@ -1920,6 +1925,11 @@ fun StudioHabitCard(
                             Text("🔔 ${habit.reminderTime}", color = AppColors.CyberCyan, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp))
                         }
                     }
+                    if (habit.customSoundUri.isNotBlank()) {
+                        Surface(color = AppColors.ElectricViolet.copy(alpha = 0.16f), shape = RoundedCornerShape(8.dp)) {
+                            Text("🎵 Custom", color = AppColors.ElectricViolet, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp))
+                        }
+                    }
                     if (habit.type == HabitType.MEASUREMENT || habit.type == HabitType.FOCUS_TIMER) {
                         Surface(color = habit.accentColor.copy(alpha = 0.14f), shape = RoundedCornerShape(8.dp)) {
                             Text("${valueToday.cleanStr()}/${habit.targetValue.cleanStr()} ${habit.unit}", color = habit.accentColor, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp))
@@ -2041,7 +2051,7 @@ fun StudioSixteenWeekHeatmap(habit: Habit) {
 }
 
 // ============================================================================
-// SECTION 2 (TAB 1): TO-DO MATRIX WITH AUTOMATIC DAILY TASK RENEWAL
+// SECTION 2 (TAB 1): TO-DO MATRIX WITH AUTOMATIC DAILY TASK RENEWAL & CUSTOM SOUND
 // ============================================================================
 @Composable
 fun StudioTodoMatrixSection(vm: HabitTrackerViewModel, onLaunchTaskTimer: (TodoTask) -> Unit) {
@@ -2079,7 +2089,6 @@ fun StudioTodoMatrixSection(vm: HabitTrackerViewModel, onLaunchTaskTimer: (TodoT
             }
         }
 
-        // Priority Filter + Test Next-Day Auto-Renew Button
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -2129,11 +2138,24 @@ fun StudioTodoMatrixSection(vm: HabitTrackerViewModel, onLaunchTaskTimer: (TodoT
         StudioAddOrEditTodoDialog(
             taskToEdit = editingTask,
             onDismiss = {
+                CelebrationSoundEngine.stopActiveCustomSound()
                 showAddTodo = false
                 editingTask = null
             },
-            onSave = { id, title, cat, prio, remTime, mins, subs, rec ->
-                vm.saveOrUpdateTodoTask(context, id, title, cat, prio, remTime, mins, subs, rec)
+            onSave = { id, title, cat, prio, remTime, mins, subs, rec, customSound ->
+                CelebrationSoundEngine.stopActiveCustomSound()
+                vm.saveOrUpdateTodoTask(
+                    context = context,
+                    existingId = id,
+                    title = title,
+                    category = cat,
+                    priority = prio,
+                    reminderTime = remTime,
+                    estimatedMinutes = mins,
+                    subTaskTitles = subs,
+                    isRecurring = rec,
+                    customSoundUri = customSound
+                )
                 showAddTodo = false
                 editingTask = null
             }
@@ -2217,6 +2239,11 @@ fun StudioTodoCard(
                     }
                     if (task.reminderTime.isNotBlank()) {
                         Text("🔔 ${task.reminderTime}", color = AppColors.CyberCyan, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    if (task.customSoundUri.isNotBlank()) {
+                        Surface(color = AppColors.ElectricViolet.copy(alpha = 0.16f), shape = RoundedCornerShape(6.dp)) {
+                            Text("🎵 Custom", color = AppColors.ElectricViolet, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                        }
                     }
                 }
 
@@ -2748,13 +2775,118 @@ fun StudioNotebookCard(
 }
 
 // ============================================================================
+// REUSABLE CUSTOM PHONE AUDIO PICKER CARD (Used in Habit & Task Dialogs)
+// ============================================================================
+@Composable
+fun CustomAudioPickerRow(
+    customSoundUri: String,
+    onSoundSelected: (String) -> Unit
+) {
+    val context = LocalContext.current
+    val fileName = remember(customSoundUri) {
+        CelebrationSoundEngine.getAudioFileName(context, customSoundUri)
+    }
+
+    val audioPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let {
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    it,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (_: Exception) {
+            }
+            onSoundSelected(it.toString())
+        }
+    }
+
+    Surface(
+        color = AppColors.ElectricViolet.copy(alpha = 0.12f),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, AppColors.ElectricViolet.copy(alpha = 0.45f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "🎵 Custom Sound Effect / Ringtone",
+                        color = AppColors.ElectricViolet,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
+                    )
+                    Text(
+                        text = fileName,
+                        color = AppColors.TextPrimary,
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                if (customSoundUri.isNotBlank()) {
+                    IconButton(
+                        onClick = {
+                            CelebrationSoundEngine.stopActiveCustomSound()
+                            onSoundSelected("")
+                        },
+                        modifier = Modifier.size(26.dp)
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "Reset to default", tint = AppColors.CrimsonRose, modifier = Modifier.size(16.dp))
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = { audioPickerLauncher.launch(arrayOf("audio/*")) },
+                    modifier = Modifier.weight(1f),
+                    border = BorderStroke(1.dp, AppColors.ElectricViolet),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Icon(Icons.Default.Add, null, tint = AppColors.ElectricViolet, modifier = Modifier.size(15.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Import from Phone", color = AppColors.ElectricViolet, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+
+                Button(
+                    onClick = {
+                        CelebrationSoundEngine.playCustomOrDefaultSound(
+                            context = context,
+                            customSoundUri = customSoundUri,
+                            isReminder = true
+                        )
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AppColors.ElectricViolet),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text("▶️ Test", color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+// ============================================================================
 // DIALOGS: CREATE / EDIT HABIT, AUTO-RENEW TODO, JOURNAL, NOTEBOOK & FOCUS
 // ============================================================================
 @Composable
 fun StudioCreateOrEditHabitDialog(
     habitToEdit: Habit?,
     onDismiss: () -> Unit,
-    onSave: (String?, String, String, String, TimeOfDay, String, HabitType, Long, Float, String, Float, String) -> Unit
+    onSave: (String?, String, String, String, TimeOfDay, String, HabitType, Long, Float, String, Float, String, String) -> Unit
 ) {
     var title by remember { mutableStateOf(habitToEdit?.title ?: "") }
     var emoji by remember { mutableStateOf(habitToEdit?.emoji ?: "⚡") }
@@ -2766,6 +2898,7 @@ fun StudioCreateOrEditHabitDialog(
     var unit by remember { mutableStateOf(habitToEdit?.unit ?: "times") }
     var step by remember { mutableStateOf(habitToEdit?.stepSize?.cleanStr() ?: "1") }
     var reminder by remember { mutableStateOf(habitToEdit?.reminderTime ?: "") }
+    var customSoundUri by remember { mutableStateOf(habitToEdit?.customSoundUri ?: "") }
     var selectedColor by remember { mutableLongStateOf(habitToEdit?.colorHex ?: 0xFF34D399L) }
 
     val context = LocalContext.current
@@ -2783,33 +2916,32 @@ fun StudioCreateOrEditHabitDialog(
                 }
                 OutlinedTextField(value = cue, onValueChange = { cue = it }, label = { Text("Habit Stacking Cue (Optional)") }, modifier = Modifier.fillMaxWidth())
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedButton(
-                        onClick = {
-                            val initH = reminder.split(":").getOrNull(0)?.toIntOrNull() ?: 8
-                            val initM = reminder.split(":").getOrNull(1)?.toIntOrNull() ?: 0
-                            TimePickerDialog(
-                                context,
-                                { _, h, m -> reminder = String.format(Locale.US, "%02d:%02d", h, m) },
-                                initH,
-                                initM,
-                                true
-                            ).show()
-                        },
-                        modifier = Modifier.weight(1f),
-                        border = BorderStroke(1.dp, AppColors.CyberCyan)
-                    ) {
-                        Icon(Icons.Default.Notifications, null, tint = AppColors.CyberCyan, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(if (reminder.isBlank()) "Set Reminder" else "🔔 $reminder", color = AppColors.CyberCyan, fontSize = 12.sp)
-                    }
-                    Button(
-                        onClick = { CelebrationSoundEngine.playMotivationalReminderSound(context) },
-                        colors = ButtonDefaults.buttonColors(containerColor = AppColors.ElectricViolet)
-                    ) {
-                        Text("Test Sound", color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    }
+                // Reminder Time Button
+                OutlinedButton(
+                    onClick = {
+                        val initH = reminder.split(":").getOrNull(0)?.toIntOrNull() ?: 8
+                        val initM = reminder.split(":").getOrNull(1)?.toIntOrNull() ?: 0
+                        TimePickerDialog(
+                            context,
+                            { _, h, m -> reminder = String.format(Locale.US, "%02d:%02d", h, m) },
+                            initH,
+                            initM,
+                            true
+                        ).show()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    border = BorderStroke(1.dp, AppColors.CyberCyan)
+                ) {
+                    Icon(Icons.Default.Notifications, null, tint = AppColors.CyberCyan, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(if (reminder.isBlank()) "Set Daily Reminder Time" else "🔔 Reminder Set: $reminder", color = AppColors.CyberCyan, fontSize = 12.sp)
                 }
+
+                // Custom Phone Audio Import Picker
+                CustomAudioPickerRow(
+                    customSoundUri = customSoundUri,
+                    onSoundSelected = { customSoundUri = it }
+                )
 
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     items(HabitType.entries) { t ->
@@ -2848,7 +2980,7 @@ fun StudioCreateOrEditHabitDialog(
                     if (title.isNotBlank()) {
                         onSave(
                             habitToEdit?.id, title, emoji, category, timeOfDay, cue, type, selectedColor,
-                            target.toFloatOrNull() ?: 1f, unit, step.toFloatOrNull() ?: 1f, reminder
+                            target.toFloatOrNull() ?: 1f, unit, step.toFloatOrNull() ?: 1f, reminder, customSoundUri
                         )
                     }
                 },
@@ -2865,12 +2997,13 @@ fun StudioCreateOrEditHabitDialog(
 fun StudioAddOrEditTodoDialog(
     taskToEdit: TodoTask?,
     onDismiss: () -> Unit,
-    onSave: (String?, String, String, TodoPriority, String, Int, List<String>, Boolean) -> Unit
+    onSave: (String?, String, String, TodoPriority, String, Int, List<String>, Boolean, String) -> Unit
 ) {
     var title by remember { mutableStateOf(taskToEdit?.title ?: "") }
     var category by remember { mutableStateOf(taskToEdit?.category ?: "Work") }
     var priority by remember { mutableStateOf(taskToEdit?.priority ?: TodoPriority.P1_CRITICAL) }
     var reminder by remember { mutableStateOf(taskToEdit?.reminderTime ?: "") }
+    var customSoundUri by remember { mutableStateOf(taskToEdit?.customSoundUri ?: "") }
     var mins by remember { mutableStateOf(taskToEdit?.estimatedMinutes?.toString() ?: "25") }
     var subtasksRaw by remember { mutableStateOf(taskToEdit?.subTasks?.joinToString("\n") { it.title } ?: "") }
     var recurring by remember { mutableStateOf(taskToEdit?.isRecurring ?: true) }
@@ -2909,6 +3042,12 @@ fun StudioAddOrEditTodoDialog(
                     }
                 }
 
+                // Custom Phone Audio Import Picker for This Task
+                CustomAudioPickerRow(
+                    customSoundUri = customSoundUri,
+                    onSoundSelected = { customSoundUri = it }
+                )
+
                 // Auto-Renew Every Day Switch
                 Surface(
                     color = AppColors.MintGlow.copy(alpha = 0.12f),
@@ -2936,7 +3075,7 @@ fun StudioAddOrEditTodoDialog(
             Button(
                 onClick = {
                     if (title.isNotBlank()) {
-                        onSave(taskToEdit?.id, title, category, priority, reminder, mins.toIntOrNull() ?: 25, subtasksRaw.lines(), recurring)
+                        onSave(taskToEdit?.id, title, category, priority, reminder, mins.toIntOrNull() ?: 25, subtasksRaw.lines(), recurring, customSoundUri)
                     }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = AppColors.MintGlow)
@@ -3291,7 +3430,7 @@ fun GoogleDriveBackupVaultDialog(vm: HabitTrackerViewModel, onDismiss: () -> Uni
         title = { Text("☁️ Google Drive Backup", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("All habits, Superhero upgrades, hourly day audits, tasks, and notes are securely backed up.", color = AppColors.TextSecondary, fontSize = 13.sp)
+                Text("All habits, custom sound links, Superhero upgrades, hourly day audits, tasks, and notes are securely backed up.", color = AppColors.TextSecondary, fontSize = 13.sp)
                 OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Google Email") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Text("Last Sync: ${vm.lastCloudBackup.value}", color = AppColors.MintGlow, fontSize = 12.sp)
 
