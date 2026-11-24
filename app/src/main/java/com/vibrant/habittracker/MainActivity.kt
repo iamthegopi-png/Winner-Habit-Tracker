@@ -4,7 +4,6 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -21,6 +20,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -34,6 +35,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.CornerRadius
@@ -47,6 +49,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -79,12 +82,12 @@ class MainActivity : ComponentActivity() {
                     background = AppColors.BgDeep,
                     surface = AppColors.BgCard,
                     primary = AppColors.MintGlow,
-                    secondary = AppColors.ElectricViolet,
+                    secondary = AppColors.CyberCyan,
                     onBackground = AppColors.TextPrimary,
                     onSurface = AppColors.TextPrimary
                 )
             ) {
-                AlphaSuperheroStudioApp(resumeTick = resumeSignal.intValue)
+                AlphaTitaniumStudioApp(resumeTick = resumeSignal.intValue)
             }
         }
     }
@@ -96,10 +99,36 @@ class MainActivity : ComponentActivity() {
 }
 
 // ============================================================================
-// MAIN 5-SECTION SUPERHERO STUDIO SCAFFOLD
+// APPLE / ONE UI SPRING-PHYSICS TOUCH MODIFIER (Zero Idle CPU Cost)
+// ============================================================================
+fun Modifier.studioBounceClick(onClick: () -> Unit): Modifier = composed {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.965f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "pressBounce"
+    )
+    this
+        .graphicsLayer {
+            scaleX = scale
+            scaleY = scale
+        }
+        .clickable(
+            interactionSource = interactionSource,
+            indication = null,
+            onClick = onClick
+        )
+}
+
+// ============================================================================
+// MAIN TITANIUM STUDIO SCAFFOLD (5 Clean Tabs: Habits, Goals, Tasks, Audit, Sanctuary)
 // ============================================================================
 @Composable
-fun AlphaSuperheroStudioApp(
+fun AlphaTitaniumStudioApp(
     resumeTick: Int,
     vm: HabitTrackerViewModel = viewModel()
 ) {
@@ -124,7 +153,6 @@ fun AlphaSuperheroStudioApp(
         }
     }
 
-    // Automatically re-check notification & battery health when returning from Android Settings
     LaunchedEffect(resumeTick) {
         if (resumeTick > 0) {
             vm.refreshNotificationHealth(context)
@@ -132,8 +160,9 @@ fun AlphaSuperheroStudioApp(
         }
     }
 
+    // 0 = Habits, 1 = Goals, 2 = Tasks, 3 = Day Audit, 4 = Sanctuary (Journal & Vault)
     var currentTab by remember { mutableIntStateOf(0) }
-    var showSuperheroModal by remember { mutableStateOf(false) }
+    var showSentinelModal by remember { mutableStateOf(false) }
     var showNotificationShieldModal by remember { mutableStateOf(false) }
     var showAnalyticsSheet by remember { mutableStateOf(false) }
     var showCloudVaultModal by remember { mutableStateOf(false) }
@@ -146,7 +175,7 @@ fun AlphaSuperheroStudioApp(
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    colors = listOf(Color(0xFF0A0D18), AppColors.BgDeep, Color(0xFF04060B))
+                    colors = listOf(Color(0xFF090D16), AppColors.BgDeep, Color(0xFF030508))
                 )
             )
             .systemBarsPadding()
@@ -154,9 +183,9 @@ fun AlphaSuperheroStudioApp(
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
-                AlphaStudioTopBar(
+                AlphaTitaniumTopBar(
                     vm = vm,
-                    onOpenSuperheroSheet = { showSuperheroModal = true },
+                    onOpenSentinelSheet = { showSentinelModal = true },
                     onOpenNotifShield = {
                         vm.refreshNotificationHealth(context)
                         showNotificationShieldModal = true
@@ -167,7 +196,7 @@ fun AlphaSuperheroStudioApp(
                 )
             },
             bottomBar = {
-                StudioFiveTabBottomDock(
+                StudioTitaniumBottomDock(
                     currentTab = currentTab,
                     onSelectTab = { currentTab = it }
                 )
@@ -178,7 +207,11 @@ fun AlphaSuperheroStudioApp(
                     .fillMaxSize()
                     .padding(innerPadding)
             ) {
-                AnimatedVisibility(visible = vm.isFocusTimerRunning.value) {
+                AnimatedVisibility(
+                    visible = vm.isFocusTimerRunning.value,
+                    enter = expandVertically(tween(220)) + fadeIn(tween(220)),
+                    exit = shrinkVertically(tween(180)) + fadeOut(tween(150))
+                ) {
                     ActiveFocusTimerBanner(
                         vm = vm,
                         onExpand = { showFocusTimerModal = true }
@@ -188,14 +221,16 @@ fun AlphaSuperheroStudioApp(
                 AnimatedContent(
                     targetState = currentTab,
                     transitionSpec = {
-                        fadeIn(tween(180)) togetherWith fadeOut(tween(120))
+                        (fadeIn(tween(220, easing = FastOutSlowInEasing)) +
+                                scaleIn(initialScale = 0.985f, animationSpec = tween(220))) togetherWith
+                                fadeOut(tween(130))
                     },
-                    label = "FiveTabTransition"
+                    label = "StudioTabTransition"
                 ) { tab ->
                     when (tab) {
                         0 -> StudioHabitTrackerSection(
                             vm = vm,
-                            onOpenSuperheroSheet = { showSuperheroModal = true },
+                            onOpenSentinelSheet = { showSentinelModal = true },
                             onNewHabit = {
                                 editingHabit = null
                                 showHabitDialog = true
@@ -214,7 +249,8 @@ fun AlphaSuperheroStudioApp(
                                 showFocusTimerModal = true
                             }
                         )
-                        1 -> StudioTodoMatrixSection(
+                        1 -> StudioGoalsAchievementSection(vm = vm)
+                        2 -> StudioTodoMatrixSection(
                             vm = vm,
                             onLaunchTaskTimer = { task ->
                                 vm.startFocusTimer(
@@ -226,9 +262,8 @@ fun AlphaSuperheroStudioApp(
                                 showFocusTimerModal = true
                             }
                         )
-                        2 -> StudioDayProductivityAuditSection(vm = vm)
-                        3 -> StudioReflectionJournalSection(vm = vm)
-                        else -> StudioSecondBrainNotebookSection(vm = vm)
+                        3 -> StudioDayProductivityAuditSection(vm = vm)
+                        else -> StudioSanctuaryHubSection(vm = vm)
                     }
                 }
             }
@@ -246,10 +281,10 @@ fun AlphaSuperheroStudioApp(
             )
         }
 
-        if (showSuperheroModal) {
-            AlphaSuperheroHeadquartersModal(
+        if (showSentinelModal) {
+            DarkKnightArmoryModal(
                 vm = vm,
-                onDismiss = { showSuperheroModal = false }
+                onDismiss = { showSentinelModal = false }
             )
         }
 
@@ -299,10 +334,11 @@ fun AlphaSuperheroStudioApp(
 
         AnimatedVisibility(
             visible = vm.showCelebration.value,
-            enter = fadeIn(tween(150)),
-            exit = fadeOut(tween(320))
+            enter = fadeIn(tween(160)),
+            exit = fadeOut(tween(300))
         ) {
             StudioFullScreenCelebrationOverlay(
+                stage = vm.cachedCharacterStats.value.stage,
                 title = vm.celebrationTitle.value,
                 subtitle = vm.celebrationSubtitle.value,
                 xpEarned = vm.celebrationXpEarned.intValue,
@@ -318,10 +354,10 @@ fun AlphaSuperheroStudioApp(
 }
 
 // ============================================================================
-// HIGH-ENERGY "ALPHA (α)" APEX LOGO & TOP BAR WITH NOTIFICATION SHIELD
+// 3D METALLIC FACETED ALPHA LOGO & TITANIUM TOP BAR
 // ============================================================================
 @Composable
-fun AlphaApexBrandLogo(
+fun AlphaTitaniumLogo(
     modifier: Modifier = Modifier,
     onClick: () -> Unit = {}
 ) {
@@ -331,64 +367,94 @@ fun AlphaApexBrandLogo(
             .clip(RoundedCornerShape(14.dp))
             .background(
                 Brush.linearGradient(
-                    listOf(Color(0xFF1A0B1E), Color(0xFF0B1324), Color(0xFF28091A))
+                    listOf(Color(0xFF131B2E), Color(0xFF080C15), Color(0xFF0E1626))
                 )
             )
             .border(
-                1.5.dp,
-                Brush.linearGradient(listOf(AppColors.CrimsonRose, AppColors.SolarGold, AppColors.CyberCyan)),
-                RoundedCornerShape(14.dp)
+                width = 1.dp,
+                brush = Brush.linearGradient(
+                    listOf(AppColors.Platinum.copy(alpha = 0.55f), AppColors.CyberCyan.copy(alpha = 0.55f), AppColors.BorderSubtle)
+                ),
+                shape = RoundedCornerShape(14.dp)
             )
-            .clickable { onClick() }
+            .studioBounceClick(onClick)
     ) {
         val w = size.width
         val h = size.height
 
-        val hex = Path().apply {
-            moveTo(w * 0.5f, h * 0.12f)
-            lineTo(w * 0.84f, h * 0.30f)
-            lineTo(w * 0.84f, h * 0.70f)
-            lineTo(w * 0.5f, h * 0.88f)
-            lineTo(w * 0.16f, h * 0.70f)
-            lineTo(w * 0.16f, h * 0.30f)
+        // 3D Dark Titanium Octagonal Shield Base
+        val plate = Path().apply {
+            moveTo(w * 0.50f, h * 0.13f)
+            lineTo(w * 0.80f, h * 0.27f)
+            lineTo(w * 0.84f, h * 0.60f)
+            lineTo(w * 0.50f, h * 0.87f)
+            lineTo(w * 0.16f, h * 0.60f)
+            lineTo(w * 0.20f, h * 0.27f)
             close()
         }
-        drawPath(hex, color = AppColors.CrimsonRose.copy(alpha = 0.22f))
         drawPath(
-            hex,
-            brush = Brush.linearGradient(listOf(AppColors.CrimsonRose, AppColors.SolarGold)),
-            style = Stroke(width = 2.dp.toPx(), join = StrokeJoin.Round)
+            plate,
+            brush = Brush.linearGradient(
+                colors = listOf(Color(0xFF1F2A40), Color(0xFF0B101B)),
+                start = Offset(0f, 0f),
+                end = Offset(w, h)
+            )
+        )
+        // Left bevel specular sheen
+        val leftFacet = Path().apply {
+            moveTo(w * 0.50f, h * 0.13f)
+            lineTo(w * 0.20f, h * 0.27f)
+            lineTo(w * 0.16f, h * 0.60f)
+            lineTo(w * 0.50f, h * 0.87f)
+            close()
+        }
+        drawPath(leftFacet, color = Color.White.copy(alpha = 0.08f))
+        drawPath(
+            plate,
+            brush = Brush.linearGradient(listOf(AppColors.CyberCyan, AppColors.MintGlow)),
+            style = Stroke(width = 1.6.dp.toPx(), join = StrokeJoin.Round)
         )
 
-        val alphaFrame = Path().apply {
-            moveTo(w * 0.30f, h * 0.72f)
-            lineTo(w * 0.50f, h * 0.24f)
-            lineTo(w * 0.70f, h * 0.72f)
+        // Sculpted 3D Platinum Alpha Apex Left & Right Wings
+        val leftAlpha = Path().apply {
+            moveTo(w * 0.50f, h * 0.24f)
+            lineTo(w * 0.29f, h * 0.72f)
+            lineTo(w * 0.39f, h * 0.72f)
+            lineTo(w * 0.50f, h * 0.44f)
+            close()
         }
-        drawPath(
-            alphaFrame,
-            color = Color.White,
-            style = Stroke(width = 3.2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
-        )
+        val rightAlpha = Path().apply {
+            moveTo(w * 0.50f, h * 0.24f)
+            lineTo(w * 0.71f, h * 0.72f)
+            lineTo(w * 0.61f, h * 0.72f)
+            lineTo(w * 0.50f, h * 0.44f)
+            close()
+        }
+        drawPath(leftAlpha, color = Color(0xFFF8FAFC))
+        drawPath(rightAlpha, color = Color(0xFF94A3B8))
 
-        val bolt = Path().apply {
-            moveTo(w * 0.26f, h * 0.56f)
-            lineTo(w * 0.52f, h * 0.48f)
-            lineTo(w * 0.46f, h * 0.58f)
-            lineTo(w * 0.74f, h * 0.50f)
+        // Emerald-Cyan Energy Crossbar
+        val strike = Path().apply {
+            moveTo(w * 0.28f, h * 0.59f)
+            lineTo(w * 0.50f, h * 0.49f)
+            lineTo(w * 0.50f, h * 0.57f)
+            lineTo(w * 0.72f, h * 0.47f)
         }
         drawPath(
-            bolt,
+            strike,
             color = AppColors.MintGlow,
-            style = Stroke(width = 2.4.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+            style = Stroke(width = 2.6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
         )
+
+        // Gold Apex Spark
+        drawCircle(color = AppColors.SolarGold, radius = 2.dp.toPx(), center = Offset(w * 0.50f, h * 0.22f))
     }
 }
 
 @Composable
-fun AlphaStudioTopBar(
+fun AlphaTitaniumTopBar(
     vm: HabitTrackerViewModel,
-    onOpenSuperheroSheet: () -> Unit,
+    onOpenSentinelSheet: () -> Unit,
     onOpenNotifShield: () -> Unit,
     onOpenTimer: () -> Unit,
     onOpenAnalytics: () -> Unit,
@@ -396,17 +462,17 @@ fun AlphaStudioTopBar(
 ) {
     val xpProg by animateFloatAsState(
         targetValue = vm.xpProgressInLevel,
-        animationSpec = tween(450),
-        label = "xpAnim"
+        animationSpec = spring(stiffness = Spring.StiffnessLow),
+        label = "xpBar"
     )
-    val charStats = vm.cachedCharacterStats.value
+    val stats = vm.cachedCharacterStats.value
     val dayScore = vm.cachedTodayScore.intValue
     val notifHealth = vm.notificationHealth.value
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 14.dp, vertical = 10.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -415,38 +481,39 @@ fun AlphaStudioTopBar(
             modifier = Modifier
                 .weight(1f)
                 .clip(RoundedCornerShape(14.dp))
-                .clickable { onOpenSuperheroSheet() }
+                .studioBounceClick(onOpenSentinelSheet)
                 .padding(end = 6.dp)
         ) {
-            AlphaApexBrandLogo(onClick = onOpenSuperheroSheet)
+            AlphaTitaniumLogo(onClick = onOpenSentinelSheet)
 
-            Spacer(Modifier.width(9.dp))
+            Spacer(Modifier.width(10.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        text = "Lv.${vm.userLevel} ${charStats.stage.formName}",
+                        text = stats.stage.title,
                         color = AppColors.TextPrimary,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        letterSpacing = 0.2.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
                     )
                     Surface(
-                        color = AppColors.MintGlow.copy(alpha = 0.16f),
+                        color = AppColors.MintGlow.copy(alpha = 0.14f),
                         shape = RoundedCornerShape(6.dp),
-                        border = BorderStroke(1.dp, AppColors.MintGlow.copy(alpha = 0.4f))
+                        border = BorderStroke(0.8.dp, AppColors.MintGlow.copy(alpha = 0.35f))
                     ) {
                         Text(
-                            text = "$dayScore%",
+                            text = "Lv.${vm.userLevel}",
                             color = AppColors.MintGlow,
                             fontSize = 10.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
                         )
                     }
                 }
@@ -456,26 +523,25 @@ fun AlphaStudioTopBar(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     LinearProgressIndicator(
                         progress = { xpProg },
-                        color = Color(charStats.stage.primaryColorHex),
+                        color = Color(stats.stage.primaryColorHex),
                         trackColor = AppColors.BgCardElevated,
                         modifier = Modifier
                             .weight(1f)
-                            .height(6.dp)
-                            .clip(RoundedCornerShape(4.dp))
+                            .height(5.dp)
+                            .clip(RoundedCornerShape(3.dp))
                     )
-                    Spacer(Modifier.width(6.dp))
+                    Spacer(Modifier.width(7.dp))
                     Text(
-                        text = "${vm.userXp.intValue} XP",
-                        color = AppColors.SolarGold,
+                        text = "${vm.userXp.intValue} XP • $dayScore%",
+                        color = AppColors.TextSecondary,
                         fontSize = 10.sp,
-                        fontWeight = FontWeight.ExtraBold
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }
         }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-            // Notification & Battery Reliability Shield Button
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Box {
                 HeaderActionButton(
                     icon = Icons.Default.NotificationsActive,
@@ -487,14 +553,14 @@ fun AlphaStudioTopBar(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .padding(3.dp)
-                            .size(9.dp)
+                            .size(8.dp)
                             .clip(CircleShape)
                             .background(AppColors.CrimsonRose)
                     )
                 }
             }
             HeaderActionButton(Icons.Default.Timer, AppColors.CyberCyan, onOpenTimer)
-            HeaderActionButton(Icons.Default.ShowChart, AppColors.MintGlow, onOpenAnalytics)
+            HeaderActionButton(Icons.Default.ShowChart, AppColors.Platinum, onOpenAnalytics)
             HeaderActionButton(
                 if (vm.connectedGoogleEmail.value != null) Icons.Default.CloudDone else Icons.Default.CloudUpload,
                 if (vm.connectedGoogleEmail.value != null) AppColors.MintGlow else AppColors.ElectricViolet,
@@ -510,20 +576,1454 @@ fun HeaderActionButton(
     tint: Color,
     onClick: () -> Unit
 ) {
-    IconButton(
-        onClick = onClick,
+    Box(
         modifier = Modifier
             .size(36.dp)
-            .clip(RoundedCornerShape(11.dp))
+            .clip(RoundedCornerShape(12.dp))
             .background(AppColors.BgCard)
-            .border(1.dp, AppColors.BorderSubtle, RoundedCornerShape(11.dp))
+            .border(0.8.dp, AppColors.BorderSubtle, RoundedCornerShape(12.dp))
+            .studioBounceClick(onClick),
+        contentAlignment = Alignment.Center
     ) {
         Icon(icon, null, tint = tint, modifier = Modifier.size(18.dp))
     }
 }
 
 // ============================================================================
-// NOTIFICATION & BATTERY RELIABILITY SHIELD DIALOG (Fixes Missed Notifications)
+// 3D-SHADED STUDIO-GRADE DARK KNIGHT SENTINEL CANVAS (Evolves Step-by-Step)
+// ============================================================================
+@Composable
+fun DarkKnight3DCanvas(
+    stage: CharacterStage,
+    modifier: Modifier = Modifier,
+    animateStudioLight: Boolean = false
+) {
+    val primary = Color(stage.primaryColorHex)
+    val secondary = Color(stage.secondaryColorHex)
+    val capeBase = Color(stage.capeColorHex)
+
+    // Smooth GPU hover + subtle breathing light — ONLY active inside Armory modal (0% idle battery drain on main screen)
+    val hoverY: Float
+    val auraPulse: Float
+    if (animateStudioLight) {
+        val infinite = rememberInfiniteTransition(label = "knight3d")
+        val y by infinite.animateFloat(
+            initialValue = -5f,
+            targetValue = 5f,
+            animationSpec = infiniteRepeatable(tween(2200, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+            label = "floatY"
+        )
+        val p by infinite.animateFloat(
+            initialValue = 0.88f,
+            targetValue = 1.06f,
+            animationSpec = infiniteRepeatable(tween(1800, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+            label = "auraScale"
+        )
+        hoverY = y
+        auraPulse = p
+    } else {
+        hoverY = 0f
+        auraPulse = 1f
+    }
+
+    Canvas(
+        modifier = modifier.graphicsLayer {
+            translationY = hoverY
+        }
+    ) {
+        val w = size.width
+        val h = size.height
+        val cx = w * 0.5f
+        val cy = h * 0.55f
+        val tier = stage.stageNumber
+
+        // 1. Studio Rim-Light Backdrop Halo
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(
+                    primary.copy(alpha = (0.28f + tier * 0.04f).coerceAtMost(0.55f)),
+                    secondary.copy(alpha = 0.12f),
+                    Color.Transparent
+                ),
+                center = Offset(cx, cy - h * 0.08f),
+                radius = w * 0.48f * auraPulse
+            ),
+            radius = w * 0.48f * auraPulse,
+            center = Offset(cx, cy - h * 0.08f)
+        )
+
+        // Stage 6 Sovereign Outer Ring
+        if (tier >= 6) {
+            drawCircle(
+                brush = Brush.sweepGradient(listOf(AppColors.SolarGold, primary, Color.Transparent, AppColors.SolarGold)),
+                radius = w * 0.44f,
+                center = Offset(cx, cy - h * 0.06f),
+                style = Stroke(width = 2.dp.toPx())
+            )
+        }
+
+        // 2. Sculpted Multi-Fold Dark Knight Cloak / Cape (Expands wider at Stage 4+)
+        val capeSpread = if (tier >= 4) 0.46f else 0.37f
+        val backCape = Path().apply {
+            moveTo(cx - w * 0.22f, cy - h * 0.16f)
+            lineTo(cx + w * 0.22f, cy - h * 0.16f)
+            lineTo(cx + w * capeSpread, cy + h * 0.36f)
+            lineTo(cx + w * 0.24f, cy + h * 0.30f)
+            lineTo(cx + w * 0.11f, cy + h * 0.39f)
+            lineTo(cx, cy + h * 0.32f)
+            lineTo(cx - w * 0.11f, cy + h * 0.39f)
+            lineTo(cx - w * 0.24f, cy + h * 0.30f)
+            lineTo(cx - w * capeSpread, cy + h * 0.36f)
+            close()
+        }
+        drawPath(
+            backCape,
+            brush = Brush.verticalGradient(
+                colors = listOf(capeBase, Color(0xFF0A0D14), Color(0xFF04060A))
+            )
+        )
+        // Left & Right 3D Cape Rim Lighting
+        drawPath(
+            backCape,
+            brush = Brush.linearGradient(
+                colors = listOf(primary.copy(alpha = 0.65f), Color.Transparent, secondary.copy(alpha = 0.55f)),
+                start = Offset(0f, cy - h * 0.15f),
+                end = Offset(w, cy + h * 0.35f)
+            ),
+            style = Stroke(width = 1.6.dp.toPx(), join = StrokeJoin.Round)
+        )
+
+        // Stage 3+ High Tactical Mantle Collar behind Cowl
+        if (tier >= 3) {
+            val collar = Path().apply {
+                moveTo(cx - w * 0.24f, cy - h * 0.12f)
+                lineTo(cx - w * 0.19f, cy - h * 0.26f)
+                lineTo(cx + w * 0.19f, cy - h * 0.26f)
+                lineTo(cx + w * 0.24f, cy - h * 0.12f)
+                close()
+            }
+            drawPath(
+                collar,
+                brush = Brush.verticalGradient(listOf(Color(0xFF1F2937), Color(0xFF090D16)))
+            )
+            drawPath(collar, color = primary.copy(alpha = 0.55f), style = Stroke(width = 1.2.dp.toPx()))
+        }
+
+        // 3. 3D Sculpted Obsidian Armored Torso (Directional Key Light + Rim Shadow)
+        val shoulderHalf = w * (0.25f + tier * 0.011f)
+        val waistHalf = w * 0.14f
+        val torsoBase = Path().apply {
+            moveTo(cx - shoulderHalf, cy - h * 0.13f)
+            lineTo(cx - w * 0.13f, cy - h * 0.19f)
+            lineTo(cx + w * 0.13f, cy - h * 0.19f)
+            lineTo(cx + shoulderHalf, cy - h * 0.13f)
+            lineTo(cx + waistHalf, cy + h * 0.25f)
+            lineTo(cx, cy + h * 0.31f)
+            lineTo(cx - waistHalf, cy + h * 0.25f)
+            close()
+        }
+        drawPath(
+            torsoBase,
+            brush = Brush.linearGradient(
+                colors = listOf(Color(0xFF334155), Color(0xFF161E2E), Color(0xFF080B12)),
+                start = Offset(cx - shoulderHalf, cy - h * 0.20f),
+                end = Offset(cx + shoulderHalf, cy + h * 0.28f)
+            )
+        )
+        drawPath(
+            torsoBase,
+            brush = Brush.linearGradient(listOf(Color.White.copy(alpha = 0.45f), primary.copy(alpha = 0.85f))),
+            style = Stroke(width = 1.8.dp.toPx(), join = StrokeJoin.Round)
+        )
+
+        // 3D Sculpted Left & Right Pectoral Armor Plates (Key-lit on left, shadowed on right)
+        val leftPec = Path().apply {
+            moveTo(cx - w * 0.015f, cy - h * 0.13f)
+            lineTo(cx - shoulderHalf * 0.72f, cy - h * 0.11f)
+            lineTo(cx - shoulderHalf * 0.62f, cy + h * 0.02f)
+            lineTo(cx - w * 0.015f, cy + h * 0.04f)
+            close()
+        }
+        val rightPec = Path().apply {
+            moveTo(cx + w * 0.015f, cy - h * 0.13f)
+            lineTo(cx + shoulderHalf * 0.72f, cy - h * 0.11f)
+            lineTo(cx + shoulderHalf * 0.62f, cy + h * 0.02f)
+            lineTo(cx + w * 0.015f, cy + h * 0.04f)
+            close()
+        }
+        drawPath(leftPec, brush = Brush.linearGradient(listOf(Color(0xFF475569), Color(0xFF1E293B))))
+        drawPath(rightPec, brush = Brush.linearGradient(listOf(Color(0xFF273449), Color(0xFF0F172A))))
+
+        // Sculpted Abdominal Armor Segments
+        for (seg in 0..2) {
+            val topY = cy + h * (0.06f + seg * 0.055f)
+            val segW = waistHalf * (0.78f - seg * 0.08f)
+            drawRoundRect(
+                brush = Brush.horizontalGradient(listOf(Color(0xFF334155), Color(0xFF111827))),
+                topLeft = Offset(cx - segW, topY),
+                size = Size(segW * 2f, h * 0.038f),
+                cornerRadius = CornerRadius(3.dp.toPx(), 3.dp.toPx())
+            )
+        }
+
+        // 4. Layered 3D Shoulder Pauldrons (Upgraded from Stage 2+)
+        if (tier >= 2) {
+            val leftPauldron = Path().apply {
+                moveTo(cx - shoulderHalf * 1.12f, cy - h * 0.09f)
+                lineTo(cx - shoulderHalf * 0.56f, cy - h * 0.21f)
+                lineTo(cx - shoulderHalf * 0.44f, cy - h * 0.02f)
+                lineTo(cx - shoulderHalf * 0.92f, cy + h * 0.02f)
+                close()
+            }
+            val rightPauldron = Path().apply {
+                moveTo(cx + shoulderHalf * 1.12f, cy - h * 0.09f)
+                lineTo(cx + shoulderHalf * 0.56f, cy - h * 0.21f)
+                lineTo(cx + shoulderHalf * 0.44f, cy - h * 0.02f)
+                lineTo(cx + shoulderHalf * 0.92f, cy + h * 0.02f)
+                close()
+            }
+            val pauldronBrush = Brush.linearGradient(
+                colors = if (tier >= 5) listOf(AppColors.SolarGold, primary) else listOf(Color(0xFF475569), Color(0xFF111827))
+            )
+            drawPath(leftPauldron, brush = pauldronBrush)
+            drawPath(rightPauldron, brush = pauldronBrush)
+            drawPath(leftPauldron, color = primary.copy(alpha = 0.85f), style = Stroke(width = 1.3.dp.toPx()))
+            drawPath(rightPauldron, color = primary.copy(alpha = 0.85f), style = Stroke(width = 1.3.dp.toPx()))
+        }
+
+        // 5. Iconic Winged Dark Sentinel Chest Crest (Matte at Stage 1-2, Illuminated Kinetic Core at Stage 3+)
+        val crestCy = cy - h * 0.03f
+        val wingedEmblem = Path().apply {
+            moveTo(cx, crestCy - h * 0.045f)
+            lineTo(cx + w * 0.04f, crestCy - h * 0.015f)
+            lineTo(cx + w * 0.145f, crestCy - h * 0.04f)
+            lineTo(cx + w * 0.105f, crestCy + h * 0.02f)
+            lineTo(cx + w * 0.045f, crestCy + h * 0.015f)
+            lineTo(cx, crestCy + h * 0.055f)
+            lineTo(cx - w * 0.045f, crestCy + h * 0.015f)
+            lineTo(cx - w * 0.105f, crestCy + h * 0.02f)
+            lineTo(cx - w * 0.145f, crestCy - h * 0.04f)
+            lineTo(cx - w * 0.04f, crestCy - h * 0.015f)
+            close()
+        }
+        val emblemColor = if (tier >= 3) primary else Color(0xFF0A0E17)
+        drawPath(wingedEmblem, color = emblemColor)
+        drawPath(
+            wingedEmblem,
+            color = if (tier >= 5) AppColors.SolarGold else Color.White.copy(alpha = 0.7f),
+            style = Stroke(width = 1.2.dp.toPx(), join = StrokeJoin.Round)
+        )
+
+        // Tactical Metallic Utility Belt (Upgrades to Gold Titanium at Stage 2+)
+        val beltY = cy + h * 0.23f
+        drawLine(
+            color = if (tier >= 2) AppColors.SolarGold else Color(0xFF475569),
+            start = Offset(cx - waistHalf * 1.05f, beltY),
+            end = Offset(cx + waistHalf * 1.05f, beltY),
+            strokeWidth = 3.2.dp.toPx(),
+            cap = StrokeCap.Round
+        )
+        drawRoundRect(
+            color = if (tier >= 5) Color.White else AppColors.SolarGold,
+            topLeft = Offset(cx - w * 0.035f, beltY - h * 0.02f),
+            size = Size(w * 0.07f, h * 0.04f),
+            cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
+        )
+
+        // 6. Sculpted 3D Dark Knight Cowl (Sharp Pointed Ears, Jawline Armor, Luminous Narrow Eyes)
+        val headTop = cy - h * 0.40f
+        val headBot = cy - h * 0.17f
+        val cowlPath = Path().apply {
+            // Left pointed cowl ear
+            moveTo(cx - w * 0.125f, headTop + h * 0.055f)
+            lineTo(cx - w * 0.145f, headTop - h * 0.085f)
+            lineTo(cx - w * 0.075f, headTop + h * 0.015f)
+            // Domed crown
+            lineTo(cx, headTop - h * 0.01f)
+            lineTo(cx + w * 0.075f, headTop + h * 0.015f)
+            // Right pointed cowl ear
+            lineTo(cx + w * 0.145f, headTop - h * 0.085f)
+            lineTo(cx + w * 0.125f, headTop + h * 0.055f)
+            // Sculpted cheekbones & angular chin guard
+            lineTo(cx + w * 0.12f, headBot - h * 0.045f)
+            lineTo(cx + w * 0.06f, headBot + h * 0.015f)
+            lineTo(cx, headBot + h * 0.03f)
+            lineTo(cx - w * 0.06f, headBot + h * 0.015f)
+            lineTo(cx - w * 0.12f, headBot - h * 0.045f)
+            close()
+        }
+        drawPath(
+            cowlPath,
+            brush = Brush.linearGradient(
+                colors = listOf(Color(0xFF334155), Color(0xFF111827), Color(0xFF05070B)),
+                start = Offset(cx - w * 0.14f, headTop),
+                end = Offset(cx + w * 0.14f, headBot)
+            )
+        )
+        // Chin shadow & brow highlight
+        val jawPlate = Path().apply {
+            moveTo(cx - w * 0.065f, headBot - h * 0.045f)
+            lineTo(cx + w * 0.065f, headBot - h * 0.045f)
+            lineTo(cx + w * 0.045f, headBot + h * 0.01f)
+            lineTo(cx, headBot + h * 0.022f)
+            lineTo(cx - w * 0.045f, headBot + h * 0.01f)
+            close()
+        }
+        drawPath(jawPlate, color = Color(0xFF1E293B))
+        drawPath(
+            cowlPath,
+            brush = Brush.linearGradient(listOf(Color.White.copy(alpha = 0.5f), primary)),
+            style = Stroke(width = 1.7.dp.toPx(), join = StrokeJoin.Round)
+        )
+
+        // Sharp Illuminated Tactical Eyes
+        val eyeY = (headTop + headBot) * 0.50f
+        val eyeColor = if (tier >= 2) Color.White else AppColors.CyberCyan
+        drawLine(
+            color = eyeColor,
+            start = Offset(cx - w * 0.085f, eyeY - h * 0.012f),
+            end = Offset(cx - w * 0.025f, eyeY + h * 0.008f),
+            strokeWidth = 2.8.dp.toPx(),
+            cap = StrokeCap.Round
+        )
+        drawLine(
+            color = eyeColor,
+            start = Offset(cx + w * 0.085f, eyeY - h * 0.012f),
+            end = Offset(cx + w * 0.025f, eyeY + h * 0.008f),
+            strokeWidth = 2.8.dp.toPx(),
+            cap = StrokeCap.Round
+        )
+
+        // 7. Armored Forearm Gauntlets & Scalloped Blades (Stage 4+)
+        if (tier >= 4) {
+            val leftGauntlet = Offset(cx - shoulderHalf * 1.02f, cy + h * 0.14f)
+            val rightGauntlet = Offset(cx + shoulderHalf * 1.02f, cy + h * 0.14f)
+            drawCircle(
+                brush = Brush.radialGradient(listOf(Color.White, primary, Color.Transparent), center = leftGauntlet, radius = w * 0.095f),
+                radius = w * 0.095f,
+                center = leftGauntlet
+            )
+            drawCircle(
+                brush = Brush.radialGradient(listOf(Color.White, secondary, Color.Transparent), center = rightGauntlet, radius = w * 0.095f),
+                radius = w * 0.095f,
+                center = rightGauntlet
+            )
+            // Tactical Gauntlet Fins
+            for (f in 0..1) {
+                val dy = f * h * 0.045f
+                drawLine(
+                    color = primary,
+                    start = Offset(leftGauntlet.x - w * 0.02f, leftGauntlet.y - dy),
+                    end = Offset(leftGauntlet.x - w * 0.075f, leftGauntlet.y - dy - h * 0.03f),
+                    strokeWidth = 2.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+                drawLine(
+                    color = secondary,
+                    start = Offset(rightGauntlet.x + w * 0.02f, rightGauntlet.y - dy),
+                    end = Offset(rightGauntlet.x + w * 0.075f, rightGauntlet.y - dy - h * 0.03f),
+                    strokeWidth = 2.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun SentinelHeroCard(
+    vm: HabitTrackerViewModel,
+    onOpenSentinelSheet: () -> Unit
+) {
+    val context = LocalContext.current
+    val stats = vm.cachedCharacterStats.value
+    val stageColor = Color(stats.stage.primaryColorHex)
+    val stageProg by animateFloatAsState(
+        targetValue = stats.stageProgressFraction,
+        animationSpec = spring(stiffness = Spring.StiffnessLow),
+        label = "armorProg"
+    )
+
+    Surface(
+        color = AppColors.BgCard,
+        shape = RoundedCornerShape(26.dp),
+        border = BorderStroke(
+            width = 1.dp,
+            brush = Brush.linearGradient(
+                listOf(stageColor.copy(alpha = 0.65f), AppColors.BorderSubtle, AppColors.BorderHighlight)
+            )
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .studioBounceClick(onOpenSentinelSheet)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                DarkKnight3DCanvas(
+                    stage = stats.stage,
+                    animateStudioLight = false,
+                    modifier = Modifier
+                        .size(92.dp)
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(
+                            Brush.radialGradient(
+                                listOf(stageColor.copy(alpha = 0.16f), AppColors.BgDeep)
+                            )
+                        )
+                        .border(1.dp, stageColor.copy(alpha = 0.45f), RoundedCornerShape(22.dp))
+                )
+
+                Spacer(Modifier.width(14.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            color = stageColor.copy(alpha = 0.16f),
+                            shape = RoundedCornerShape(7.dp)
+                        ) {
+                            Text(
+                                text = "${stats.stage.formName.uppercase()} • ${stats.stage.title.uppercase()}",
+                                color = stageColor,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                            )
+                        }
+                        Text(
+                            text = if (stats.comboMultiplier > 1f) "${stats.comboMultiplier}x" else "${stats.combatPower} CP",
+                            color = AppColors.SolarGold,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+
+                    Spacer(Modifier.height(5.dp))
+
+                    Text(
+                        text = stats.stage.suitName,
+                        color = AppColors.TextPrimary,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    Spacer(Modifier.height(4.dp))
+
+                    // Step-by-Step Armor Evolution Progress Bar
+                    LinearProgressIndicator(
+                        progress = { stageProg },
+                        color = stageColor,
+                        trackColor = AppColors.BgCardElevated,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(5.dp)
+                            .clip(RoundedCornerShape(3.dp))
+                    )
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        text = stats.nextUpgradeRequirementText,
+                        color = AppColors.TextSecondary,
+                        fontSize = 10.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    Spacer(Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        CharacterMiniStatPill("STR", stats.strength, AppColors.CrimsonRose)
+                        CharacterMiniStatPill("INT", stats.intellect, AppColors.CyberCyan)
+                        CharacterMiniStatPill("WIL", stats.willpower, AppColors.SolarGold)
+                        CharacterMiniStatPill("VIT", stats.vitality, AppColors.MintGlow)
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // High-Agency Motivation Bar
+            Surface(
+                color = AppColors.BgSurface,
+                shape = RoundedCornerShape(14.dp),
+                border = BorderStroke(0.8.dp, AppColors.BorderSubtle),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = stats.heroSpeechBubble,
+                        color = AppColors.Platinum,
+                        fontSize = 11.sp,
+                        fontStyle = FontStyle.Italic,
+                        lineHeight = 16.sp,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    IconButton(
+                        onClick = { vm.triggerNewHeroMotivation(context) },
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(stageColor.copy(alpha = 0.18f))
+                    ) {
+                        Icon(Icons.Default.AutoAwesome, "New Quote", tint = stageColor, modifier = Modifier.size(15.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CharacterMiniStatPill(label: String, value: Int, color: Color) {
+    Surface(
+        color = AppColors.BgCardElevated,
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(0.8.dp, color.copy(alpha = 0.3f))
+    ) {
+        Text(
+            text = "$label $value",
+            color = color,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+        )
+    }
+}
+
+/**
+ * DARK KNIGHT ARMORY MODAL (NO SHORTCUTS — PURE EARNED PROGRESSION)
+ * Tap any stage in the roadmap to inspect its 3D armor preview.
+ */
+@Composable
+fun DarkKnightArmoryModal(
+    vm: HabitTrackerViewModel,
+    onDismiss: () -> Unit
+) {
+    val stats = vm.cachedCharacterStats.value
+    var previewStage by remember { mutableStateOf(stats.stage) }
+    val previewColor = Color(previewStage.primaryColorHex)
+    val isPreviewUnlocked = stats.stage.stageNumber >= previewStage.stageNumber
+
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(
+            color = AppColors.BgDeep,
+            shape = RoundedCornerShape(30.dp),
+            border = BorderStroke(1.2.dp, previewColor.copy(alpha = 0.75f)),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "SENTINEL ARMORY",
+                            color = AppColors.TextPrimary,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 1.sp
+                        )
+                        Text(
+                            text = "Earned strictly through daily discipline • Zero shortcuts",
+                            color = AppColors.TextSecondary,
+                            fontSize = 11.sp
+                        )
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, null, tint = AppColors.TextSecondary)
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                // Interactive 3D Stage Showcase with Studio Floating Animation
+                Box(contentAlignment = Alignment.TopEnd) {
+                    DarkKnight3DCanvas(
+                        stage = previewStage,
+                        animateStudioLight = true,
+                        modifier = Modifier
+                            .size(205.dp)
+                            .clip(RoundedCornerShape(30.dp))
+                            .background(
+                                Brush.radialGradient(
+                                    listOf(previewColor.copy(alpha = 0.22f), AppColors.BgCard, AppColors.BgDeep)
+                                )
+                            )
+                            .border(1.5.dp, previewColor.copy(alpha = 0.7f), RoundedCornerShape(30.dp))
+                    )
+                    Surface(
+                        color = if (isPreviewUnlocked) AppColors.MintGlow else AppColors.BgCardElevated,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.padding(10.dp)
+                    ) {
+                        Text(
+                            text = if (isPreviewUnlocked) "UNLOCKED" else "PREVIEW 🔒",
+                            color = if (isPreviewUnlocked) Color.Black else AppColors.TextSecondary,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                Text(
+                    text = "${previewStage.title} (${previewStage.formName})",
+                    color = previewColor,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Text(
+                    text = "${previewStage.suitName} • ${previewStage.armorUpgradeDetail}",
+                    color = AppColors.Platinum,
+                    fontSize = 12.sp,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = stats.nextUpgradeRequirementText,
+                    color = AppColors.SolarGold,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Spacer(Modifier.height(16.dp))
+
+                // Earned Discipline Attributes (Read-Only — No Boost Shortcut Buttons)
+                Surface(
+                    color = AppColors.BgCard,
+                    shape = RoundedCornerShape(22.dp),
+                    border = BorderStroke(0.8.dp, AppColors.BorderSubtle),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("EARNED DISCIPLINE PROFILE", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Text("CP ${stats.combatPower}", color = AppColors.SolarGold, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                        }
+                        EarnedStatProgressBar("💪 Strength (Fitness & Health Habits)", stats.strength, AppColors.CrimsonRose)
+                        EarnedStatProgressBar("🧠 Intellect (Goals, Focus & Vault)", stats.intellect, AppColors.CyberCyan)
+                        EarnedStatProgressBar("🔥 Willpower (Streaks & Missions)", stats.willpower, AppColors.SolarGold)
+                        EarnedStatProgressBar("🌿 Vitality (Journal & Consistency)", stats.vitality, AppColors.MintGlow)
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // 6-Stage Interactive Step-by-Step Armor Roadmap
+                Surface(
+                    color = AppColors.BgCard,
+                    shape = RoundedCornerShape(22.dp),
+                    border = BorderStroke(0.8.dp, AppColors.BorderSubtle),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text("STEP-BY-STEP ARMOR EVOLUTION (TAP TO PREVIEW)", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        CharacterStage.entries.forEach { st ->
+                            val unlocked = stats.stage.stageNumber >= st.stageNumber
+                            val isSelected = previewStage == st
+                            val stColor = Color(st.primaryColorHex)
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(
+                                        when {
+                                            isSelected -> stColor.copy(alpha = 0.22f)
+                                            unlocked -> stColor.copy(alpha = 0.08f)
+                                            else -> AppColors.BgSurface
+                                        }
+                                    )
+                                    .border(
+                                        width = if (isSelected) 1.2.dp else 0.8.dp,
+                                        color = if (isSelected) stColor else AppColors.BorderSubtle,
+                                        shape = RoundedCornerShape(14.dp)
+                                    )
+                                    .clickable { previewStage = st }
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "${st.formName}: ${st.title}",
+                                        color = if (unlocked || isSelected) stColor else AppColors.TextSecondary,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp
+                                    )
+                                    Text(
+                                        text = "${st.armorUpgradeDetail} • Req: ${st.minXpRequired} XP & ${st.minStreakRequired}d streak",
+                                        color = AppColors.TextSecondary,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                                Icon(
+                                    imageVector = if (unlocked) Icons.Default.Verified else Icons.Default.Lock,
+                                    contentDescription = null,
+                                    tint = if (unlocked) AppColors.MintGlow else AppColors.TextMuted,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun EarnedStatProgressBar(label: String, statValue: Int, color: Color) {
+    val ratio by animateFloatAsState(
+        targetValue = (statValue / 240f).coerceIn(0.08f, 1f),
+        animationSpec = spring(stiffness = Spring.StiffnessLow),
+        label = "statBar"
+    )
+    Column {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(label, color = AppColors.TextSecondary, fontSize = 12.sp)
+            Text("$statValue", color = color, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+        }
+        Spacer(Modifier.height(4.dp))
+        LinearProgressIndicator(
+            progress = { ratio },
+            color = color,
+            trackColor = AppColors.BgCardElevated,
+            modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp))
+        )
+    }
+}
+
+// ============================================================================
+// NEW SECTION (TAB 1): GOAL ACHIEVEMENT & DAILY WORK MONITOR
+// ============================================================================
+@Composable
+fun StudioGoalsAchievementSection(vm: HabitTrackerViewModel) {
+    val context = LocalContext.current
+    var showCreateGoal by remember { mutableStateOf(false) }
+    var editingGoal by remember { mutableStateOf<GoalItem?>(null) }
+    var loggingWorkForGoal by remember { mutableStateOf<GoalItem?>(null) }
+
+    val today = remember { LocalDate.now() }
+    val activeGoalsCount = vm.goals.count { !it.isCompleted }
+    val completedGoalsCount = vm.goals.count { it.isCompleted }
+    val workedTodayCount = vm.goals.count { it.workedToday(today) }
+    val totalMinutesAllGoals = vm.goals.sumOf { it.totalMinutesInvested() }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        // 1. Studio Goals Command Summary Card
+        item(key = "goals_header_card") {
+            Surface(
+                color = AppColors.BgCard,
+                shape = RoundedCornerShape(24.dp),
+                border = BorderStroke(1.dp, AppColors.CyberCyan.copy(alpha = 0.45f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(18.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "GOAL ACHIEVEMENT STUDIO",
+                                color = AppColors.CyberCyan,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 1.sp
+                            )
+                            Spacer(Modifier.height(3.dp))
+                            Text(
+                                text = "Deadlines & Daily Execution",
+                                color = AppColors.TextPrimary,
+                                fontSize = 19.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Button(
+                            onClick = {
+                                editingGoal = null
+                                showCreateGoal = true
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = AppColors.MintGlow),
+                            shape = RoundedCornerShape(14.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Icon(Icons.Default.Add, null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("New Goal", color = Color.Black, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                        }
+                    }
+
+                    Spacer(Modifier.height(14.dp))
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        AuditStatPill(Modifier.weight(1f), "Active", "$activeGoalsCount", AppColors.CyberCyan)
+                        AuditStatPill(Modifier.weight(1f), "Worked Today", "$workedTodayCount/${vm.goals.size}", AppColors.MintGlow)
+                        AuditStatPill(Modifier.weight(1f), "Invested", "${totalMinutesAllGoals / 60}h ${totalMinutesAllGoals % 60}m", AppColors.SolarGold)
+                    }
+                    if (completedGoalsCount > 0) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = "🏆 $completedGoalsCount major goal(s) achieved",
+                            color = AppColors.MintGlow,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+
+        if (vm.goals.isEmpty()) {
+            item(key = "empty_goals") {
+                Surface(
+                    color = AppColors.BgCard,
+                    shape = RoundedCornerShape(22.dp),
+                    border = BorderStroke(0.8.dp, AppColors.BorderSubtle),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(28.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("🎯", fontSize = 38.sp)
+                        Spacer(Modifier.height(8.dp))
+                        Text("Set Your First Measurable Goal", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Spacer(Modifier.height(4.dp))
+                        Text("Define a deadline and log your daily work progress step by step.", color = AppColors.TextSecondary, fontSize = 12.sp, textAlign = TextAlign.Center)
+                        Spacer(Modifier.height(14.dp))
+                        Button(
+                            onClick = { showCreateGoal = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = AppColors.CyberCyan)
+                        ) {
+                            Text("Create Goal", color = Color.Black, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Interactive Goal Cards with Expandable Daily Work Log History
+        items(vm.goals, key = { it.id }) { goal ->
+            StudioGoalCard(
+                goal = goal,
+                today = today,
+                onLogWork = { loggingWorkForGoal = goal },
+                onEdit = {
+                    editingGoal = goal
+                    showCreateGoal = true
+                },
+                onDelete = { vm.deleteGoal(context, goal.id) },
+                onDeleteWorkLog = { logId -> vm.deleteGoalWorkLog(context, goal.id, logId) }
+            )
+        }
+
+        item { Spacer(Modifier.height(28.dp)) }
+    }
+
+    if (showCreateGoal) {
+        StudioCreateOrEditGoalDialog(
+            goalToEdit = editingGoal,
+            onDismiss = {
+                showCreateGoal = false
+                editingGoal = null
+            },
+            onSave = { id, title, emoji, cat, desc, deadlineIso, target, unit, colorHex ->
+                vm.saveOrUpdateGoal(context, id, title, emoji, cat, desc, deadlineIso, target, unit, colorHex)
+                showCreateGoal = false
+                editingGoal = null
+            }
+        )
+    }
+
+    loggingWorkForGoal?.let { goal ->
+        LogDailyGoalWorkDialog(
+            goal = goal,
+            onDismiss = { loggingWorkForGoal = null },
+            onSave = { summary, delta, mins, date ->
+                vm.logDailyGoalWork(context, goal.id, summary, delta, mins, date)
+                loggingWorkForGoal = null
+            }
+        )
+    }
+}
+
+@Composable
+fun StudioGoalCard(
+    goal: GoalItem,
+    today: LocalDate,
+    onLogWork: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onDeleteWorkLog: (String) -> Unit
+) {
+    var expandedLogs by remember { mutableStateOf(false) }
+    val daysLeft = goal.daysRemaining(today)
+    val pace = goal.requiredDailyPace(today)
+    val workedToday = goal.workedToday(today)
+
+    val animatedProg by animateFloatAsState(
+        targetValue = goal.progressFraction,
+        animationSpec = spring(stiffness = Spring.StiffnessLow),
+        label = "goalProg"
+    )
+
+    val deadlineBadgeText = when {
+        goal.isCompleted -> "ACHIEVED ✓"
+        daysLeft < 0 -> "OVERDUE (${-daysLeft}d)"
+        daysLeft == 0L -> "DUE TODAY"
+        else -> "${daysLeft}d LEFT"
+    }
+    val deadlineBadgeColor = when {
+        goal.isCompleted -> AppColors.MintGlow
+        daysLeft <= 3 -> AppColors.CrimsonRose
+        daysLeft <= 10 -> AppColors.SolarGold
+        else -> goal.accentColor
+    }
+
+    Surface(
+        color = AppColors.BgCard,
+        shape = RoundedCornerShape(24.dp),
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (goal.isCompleted) AppColors.MintGlow.copy(alpha = 0.65f) else goal.accentColor.copy(alpha = 0.42f)
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Top Row: Emoji, Title, Deadline Countdown + Circular Gauge
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onEdit() }
+                        .padding(end = 10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(46.dp)
+                            .clip(RoundedCornerShape(15.dp))
+                            .background(goal.accentColor.copy(alpha = 0.16f))
+                            .border(1.dp, goal.accentColor.copy(alpha = 0.4f), RoundedCornerShape(15.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(goal.emoji, fontSize = 22.sp)
+                    }
+
+                    Spacer(Modifier.width(12.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = goal.title,
+                            color = AppColors.TextPrimary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(Modifier.height(3.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Surface(color = deadlineBadgeColor.copy(alpha = 0.16f), shape = RoundedCornerShape(6.dp)) {
+                                Text(
+                                    text = deadlineBadgeText,
+                                    color = deadlineBadgeColor,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                            Text("Due ${goal.deadlineIso}", color = AppColors.TextSecondary, fontSize = 11.sp)
+                        }
+                    }
+                }
+
+                // Animated Circular Completion Ring
+                Box(modifier = Modifier.size(52.dp), contentAlignment = Alignment.Center) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val stroke = 4.5.dp.toPx()
+                        drawCircle(color = AppColors.BgCardElevated, style = Stroke(stroke))
+                        drawArc(
+                            color = if (goal.isCompleted) AppColors.MintGlow else goal.accentColor,
+                            startAngle = -90f,
+                            sweepAngle = 360f * animatedProg,
+                            useCenter = false,
+                            style = Stroke(width = stroke, cap = StrokeCap.Round)
+                        )
+                    }
+                    Text(
+                        text = "${goal.progressPercent}%",
+                        color = AppColors.TextPrimary,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+
+            if (goal.description.isNotBlank()) {
+                Spacer(Modifier.height(8.dp))
+                Text(goal.description, color = AppColors.TextSecondary, fontSize = 12.sp, lineHeight = 17.sp)
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // Progress Bar + Required Daily Pace Info
+            LinearProgressIndicator(
+                progress = { animatedProg },
+                color = if (goal.isCompleted) AppColors.MintGlow else goal.accentColor,
+                trackColor = AppColors.BgCardElevated,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(7.dp)
+                    .clip(RoundedCornerShape(4.dp))
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "${goal.currentValue.cleanStr()} / ${goal.targetValue.cleanStr()} ${goal.unit}",
+                    color = goal.accentColor,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp
+                )
+                Text(
+                    text = if (goal.isCompleted) "Target Reached!" else "Daily pace: ${pace.cleanStr()} ${goal.unit}/day",
+                    color = AppColors.TextSecondary,
+                    fontSize = 11.sp
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // Action Row: Log Today's Work + History Toggle + Edit/Delete
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Button(
+                    onClick = onLogWork,
+                    colors = ButtonDefaults.buttonColors(containerColor = goal.accentColor),
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Icon(Icons.Default.Add, null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = if (workedToday) "Log More Work ✓" else "Log Today's Work",
+                        color = Color.Black,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 12.sp
+                    )
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Surface(
+                        color = AppColors.BgCardElevated,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.clickable { expandedLogs = !expandedLogs }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Logs (${goal.dailyLogs.size})", color = AppColors.Platinum, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            Icon(
+                                imageVector = if (expandedLogs) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                contentDescription = null,
+                                tint = AppColors.TextSecondary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                    SmallToolPillButton(Icons.Default.Edit, AppColors.TextSecondary, onEdit)
+                    SmallToolPillButton(Icons.Default.Delete, AppColors.TextMuted, onDelete)
+                }
+            }
+
+            // Expandable Daily Work Timeline
+            AnimatedVisibility(
+                visible = expandedLogs,
+                enter = expandVertically(tween(220)) + fadeIn(tween(220)),
+                exit = shrinkVertically(tween(180)) + fadeOut(tween(150))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(AppColors.BgSurface)
+                        .border(0.8.dp, AppColors.BorderSubtle, RoundedCornerShape(14.dp))
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "DAILY WORK LOGS (${goal.totalMinutesInvested()} mins total)",
+                        color = AppColors.TextSecondary,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    if (goal.dailyLogs.isEmpty()) {
+                        Text("No daily work logged yet. Tap 'Log Today's Work' to start.", color = AppColors.TextMuted, fontSize = 12.sp)
+                    } else {
+                        goal.dailyLogs.take(10).forEach { wl ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(wl.workSummary, color = AppColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                    Text(
+                                        text = "${wl.date} • +${wl.progressDelta.cleanStr()} ${goal.unit} • ${wl.minutesSpent}m",
+                                        color = goal.accentColor,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                                IconButton(onClick = { onDeleteWorkLog(wl.id) }, modifier = Modifier.size(26.dp)) {
+                                    Icon(Icons.Default.Close, "Remove Log", tint = AppColors.TextMuted, modifier = Modifier.size(14.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun StudioCreateOrEditGoalDialog(
+    goalToEdit: GoalItem?,
+    onDismiss: () -> Unit,
+    onSave: (String?, String, String, String, String, String, Float, String, Long) -> Unit
+) {
+    val context = LocalContext.current
+    var title by remember { mutableStateOf(goalToEdit?.title ?: "") }
+    var emoji by remember { mutableStateOf(goalToEdit?.emoji ?: "🎯") }
+    var category by remember { mutableStateOf(goalToEdit?.category ?: "Career") }
+    var description by remember { mutableStateOf(goalToEdit?.description ?: "") }
+    var deadlineIso by remember { mutableStateOf(goalToEdit?.deadlineIso ?: LocalDate.now().plusDays(30).toString()) }
+    var target by remember { mutableStateOf(goalToEdit?.targetValue?.cleanStr() ?: "100") }
+    var unit by remember { mutableStateOf(goalToEdit?.unit ?: "hrs") }
+    var selectedColor by remember { mutableLongStateOf(goalToEdit?.colorHex ?: 0xFF38BDF8L) }
+
+    val colorChoices = listOf(0xFF38BDF8L, 0xFF34D399L, 0xFFA855F7L, 0xFFF97316L, 0xFFFBBF24L, 0xFFF43F5EL)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = AppColors.BgCard,
+        title = { Text(if (goalToEdit == null) "Set New Goal" else "Edit Goal", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(value = emoji, onValueChange = { emoji = it }, label = { Text("Icon") }, modifier = Modifier.width(70.dp))
+                    OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Goal Title") }, modifier = Modifier.weight(1f))
+                }
+                OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text("Why this goal matters / Plan") }, minLines = 2, modifier = Modifier.fillMaxWidth())
+
+                OutlinedButton(
+                    onClick = {
+                        val parsed = runCatching { LocalDate.parse(deadlineIso) }.getOrDefault(LocalDate.now().plusDays(30))
+                        DatePickerDialog(
+                            context,
+                            { _, y, m, d -> deadlineIso = LocalDate.of(y, m + 1, d).toString() },
+                            parsed.year,
+                            parsed.monthValue - 1,
+                            parsed.dayOfMonth
+                        ).show()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    border = BorderStroke(1.dp, AppColors.CyberCyan)
+                ) {
+                    Icon(Icons.Default.DateRange, null, tint = AppColors.CyberCyan, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Deadline: $deadlineIso", color = AppColors.CyberCyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = target,
+                        onValueChange = { target = it },
+                        label = { Text("Target") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(value = unit, onValueChange = { unit = it }, label = { Text("Unit (hrs, %, km)") }, modifier = Modifier.weight(1f))
+                }
+
+                OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text("Category (Career, Fitness, Study)") }, modifier = Modifier.fillMaxWidth())
+
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    colorChoices.forEach { hex ->
+                        Box(
+                            modifier = Modifier
+                                .size(30.dp)
+                                .clip(CircleShape)
+                                .background(Color(hex))
+                                .border(width = if (selectedColor == hex) 2.5.dp else 0.dp, color = Color.White, shape = CircleShape)
+                                .clickable { selectedColor = hex }
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (title.isNotBlank()) {
+                        onSave(goalToEdit?.id, title, emoji, category, description, deadlineIso, target.toFloatOrNull() ?: 100f, unit, selectedColor)
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = AppColors.MintGlow)
+            ) {
+                Text("Save Goal", color = Color.Black, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+@Composable
+fun LogDailyGoalWorkDialog(
+    goal: GoalItem,
+    onDismiss: () -> Unit,
+    onSave: (String, Float, Int, LocalDate) -> Unit
+) {
+    val context = LocalContext.current
+    var summary by remember { mutableStateOf("") }
+    var deltaText by remember { mutableStateOf("1") }
+    var minsText by remember { mutableStateOf("45") }
+    var logDate by remember { mutableStateOf(LocalDate.now()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = AppColors.BgCard,
+        title = { Text("${goal.emoji} Log Daily Work", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(goal.title, color = goal.accentColor, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+
+                OutlinedButton(
+                    onClick = {
+                        DatePickerDialog(
+                            context,
+                            { _, y, m, d -> logDate = LocalDate.of(y, m + 1, d) },
+                            logDate.year,
+                            logDate.monthValue - 1,
+                            logDate.dayOfMonth
+                        ).show()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    border = BorderStroke(1.dp, AppColors.BorderHighlight)
+                ) {
+                    Icon(Icons.Default.DateRange, null, tint = AppColors.Platinum, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Work Date: $logDate", color = AppColors.Platinum, fontSize = 12.sp)
+                }
+
+                OutlinedTextField(
+                    value = summary,
+                    onValueChange = { summary = it },
+                    label = { Text("What concrete work did you finish?") },
+                    minLines = 2,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = deltaText,
+                        onValueChange = { deltaText = it },
+                        label = { Text("Progress (+${goal.unit})") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = minsText,
+                        onValueChange = { minsText = it },
+                        label = { Text("Minutes") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onSave(summary, deltaText.toFloatOrNull() ?: 1f, minsText.toIntOrNull() ?: 30, logDate)
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = goal.accentColor)
+            ) {
+                Text("Log Progress", color = Color.Black, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+// ============================================================================
+// UNIFIED SANCTUARY HUB (TAB 4): APPLE-STYLE SEGMENTED SWITCHER (JOURNAL | VAULT)
+// ============================================================================
+@Composable
+fun StudioSanctuaryHubSection(vm: HabitTrackerViewModel) {
+    var subTab by remember { mutableIntStateOf(0) } // 0 = Journal, 1 = Vault
+    val theme = vm.readingTheme.value
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(theme.bgColor)
+    ) {
+        // Frosted Segmented Control Pill
+        Surface(
+            color = theme.cardColor,
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(0.8.dp, theme.borderColor),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
+            Row(modifier = Modifier.fillMaxWidth().padding(4.dp)) {
+                listOf(0 to "📖 Sanctuary Journal", 1 to "🧠 Knowledge Vault").forEach { (idx, label) ->
+                    val selected = subTab == idx
+                    Surface(
+                        color = if (selected) theme.accent else Color.Transparent,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { subTab = idx }
+                    ) {
+                        Text(
+                            text = label,
+                            color = if (selected) Color.Black else theme.textSecondary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        AnimatedContent(
+            targetState = subTab,
+            transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(120)) },
+            label = "SanctuarySwitch"
+        ) { current ->
+            if (current == 0) {
+                StudioReflectionJournalSection(vm = vm)
+            } else {
+                StudioSecondBrainNotebookSection(vm = vm)
+            }
+        }
+    }
+}
+
+// ============================================================================
+// 5-TAB TITANIUM BOTTOM DOCK (Habits, Goals, Tasks, Audit, Sanctuary)
+// ============================================================================
+@Composable
+fun StudioTitaniumBottomDock(currentTab: Int, onSelectTab: (Int) -> Unit) {
+    Surface(
+        color = AppColors.BgSurface.copy(alpha = 0.97f),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        border = BorderStroke(0.8.dp, AppColors.BorderSubtle),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 9.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val items = listOf(
+                Triple(0, "Habits", Icons.Default.GridOn),
+                Triple(1, "Goals", Icons.Default.Flag),
+                Triple(2, "Tasks", Icons.Default.CheckCircle),
+                Triple(3, "Audit", Icons.Default.Schedule),
+                Triple(4, "Sanctuary", Icons.Default.AutoAwesome)
+            )
+
+            items.forEach { (index, title, icon) ->
+                val selected = currentTab == index
+                val pillBg by animateColorAsState(if (selected) AppColors.MintGlow.copy(alpha = 0.14f) else Color.Transparent, label = "dockBg")
+                val tint by animateColorAsState(if (selected) AppColors.MintGlow else AppColors.TextSecondary, label = "dockTint")
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(pillBg)
+                        .studioBounceClick { onSelectTab(index) }
+                        .padding(horizontal = 11.dp, vertical = 6.dp)
+                ) {
+                    Icon(icon, null, tint = tint, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.height(2.dp))
+                    Text(title, color = tint, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, fontSize = 10.sp)
+                }
+            }
+        }
+    }
+}
+
+// ============================================================================
+// NOTIFICATION & BATTERY SHIELD DIALOG
 // ============================================================================
 @SuppressLint("BatteryLife")
 @Composable
@@ -539,118 +2039,61 @@ fun NotificationAndBatteryShieldDialog(
         Surface(
             color = AppColors.BgCard,
             shape = RoundedCornerShape(26.dp),
-            border = BorderStroke(1.5.dp, if (health.allHealthy) AppColors.MintGlow else AppColors.SolarGold),
+            border = BorderStroke(1.2.dp, if (health.allHealthy) AppColors.MintGlow else AppColors.SolarGold),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
-                modifier = Modifier
-                    .padding(20.dp)
-                    .verticalScroll(rememberScrollState()),
+                modifier = Modifier.padding(20.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "🛡️ Notification Shield",
-                        color = AppColors.TextPrimary,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                    IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Default.Close, null, tint = AppColors.TextSecondary)
-                    }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("🛡️ Notification Shield", color = AppColors.TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) { Icon(Icons.Default.Close, null, tint = AppColors.TextSecondary) }
                 }
 
                 Text(
-                    text = "Android Doze & battery saver can pause background apps after idle time. Enable all 3 shields below so habit & task alarms fire on time—even when the phone is locked.",
+                    text = "Enable all 3 shields so Android Doze and battery savers never silence your habit or mission reminders while idle.",
                     color = AppColors.TextSecondary,
                     fontSize = 12.sp,
                     lineHeight = 17.sp
                 )
 
-                ShieldCheckItemRow(
-                    title = "1. Notification Permission",
-                    subtitle = if (health.notificationsGranted) "Allowed" else "Tap Fix to allow alerts",
-                    isOk = health.notificationsGranted,
-                    onFix = {
-                        onRequestNotifPermission()
-                        try {
-                            val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-                                putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                            }
-                            context.startActivity(intent)
-                        } catch (_: Exception) {
-                        }
-                    }
-                )
-
-                ShieldCheckItemRow(
-                    title = "2. Exact Doze-Proof Alarms",
-                    subtitle = if (health.exactAlarmsGranted) "Using AlarmClock priority" else "Tap Fix to allow exact alarms",
-                    isOk = health.exactAlarmsGranted,
-                    onFix = {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                            try {
-                                val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
-                                    data = Uri.parse("package:${context.packageName}")
-                                }
-                                context.startActivity(intent)
-                            } catch (_: Exception) {
-                            }
-                        }
-                    }
-                )
-
-                ShieldCheckItemRow(
-                    title = "3. Unrestricted Battery (Anti-Kill)",
-                    subtitle = if (health.batteryUnrestricted) "Protected from OS sleep" else "Tap Fix & allow Unrestricted",
-                    isOk = health.batteryUnrestricted,
-                    onFix = {
-                        try {
-                            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                                data = Uri.parse("package:${context.packageName}")
-                            }
-                            context.startActivity(intent)
-                        } catch (_: Exception) {
-                            try {
-                                context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
-                            } catch (_: Exception) {
-                            }
-                        }
-                    }
-                )
-
-                Surface(
-                    color = AppColors.BgCardElevated,
-                    shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Armed Habit & Task Alarms:",
-                            color = AppColors.TextSecondary,
-                            fontSize = 12.sp
-                        )
-                        Text(
-                            text = "${health.scheduledRemindersCount} Active",
-                            color = AppColors.MintGlow,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 13.sp
-                        )
+                ShieldCheckItemRow("1. Notification Permission", if (health.notificationsGranted) "Allowed" else "Tap Fix to allow alerts", health.notificationsGranted) {
+                    onRequestNotifPermission()
+                    try {
+                        context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
+                    } catch (_: Exception) {
                     }
                 }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                ShieldCheckItemRow("2. Exact Doze-Proof Alarms", if (health.exactAlarmsGranted) "AlarmClock priority active" else "Tap Fix to allow exact alarms", health.exactAlarmsGranted) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        try {
+                            context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).setData(Uri.parse("package:${context.packageName}")))
+                        } catch (_: Exception) {
+                        }
+                    }
+                }
+
+                ShieldCheckItemRow("3. Unrestricted Battery", if (health.batteryUnrestricted) "Protected from OS sleep" else "Tap Fix & allow Unrestricted", health.batteryUnrestricted) {
+                    try {
+                        context.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).setData(Uri.parse("package:${context.packageName}")))
+                    } catch (_: Exception) {
+                        try {
+                            context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                        } catch (_: Exception) {
+                        }
+                    }
+                }
+
+                Surface(color = AppColors.BgCardElevated, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) {
+                    Row(modifier = Modifier.padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("Armed Habit & Mission Alarms:", color = AppColors.TextSecondary, fontSize = 12.sp)
+                        Text("${health.scheduledRemindersCount} Active", color = AppColors.MintGlow, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
+                    }
+                }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(
                         onClick = {
                             val armed = ReminderScheduler.rescheduleAllSavedAlarms(context)
@@ -680,30 +2123,16 @@ fun NotificationAndBatteryShieldDialog(
 }
 
 @Composable
-fun ShieldCheckItemRow(
-    title: String,
-    subtitle: String,
-    isOk: Boolean,
-    onFix: () -> Unit
-) {
+fun ShieldCheckItemRow(title: String, subtitle: String, isOk: Boolean, onFix: () -> Unit) {
     Surface(
         color = AppColors.BgCardElevated,
         shape = RoundedCornerShape(14.dp),
-        border = BorderStroke(1.dp, if (isOk) AppColors.MintGlow.copy(alpha = 0.45f) else AppColors.SolarGold.copy(alpha = 0.55f)),
+        border = BorderStroke(0.8.dp, if (isOk) AppColors.MintGlow.copy(alpha = 0.45f) else AppColors.SolarGold.copy(alpha = 0.55f)),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
+        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                Icon(
-                    imageVector = if (isOk) Icons.Default.CheckCircle else Icons.Default.Warning,
-                    contentDescription = null,
-                    tint = if (isOk) AppColors.MintGlow else AppColors.SolarGold,
-                    modifier = Modifier.size(20.dp)
-                )
+                Icon(if (isOk) Icons.Default.CheckCircle else Icons.Default.Warning, null, tint = if (isOk) AppColors.MintGlow else AppColors.SolarGold, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
                 Column {
                     Text(title, color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
@@ -711,11 +2140,7 @@ fun ShieldCheckItemRow(
                 }
             }
             if (!isOk) {
-                Button(
-                    onClick = onFix,
-                    colors = ButtonDefaults.buttonColors(containerColor = AppColors.SolarGold),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                ) {
+                Button(onClick = onFix, colors = ButtonDefaults.buttonColors(containerColor = AppColors.SolarGold), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)) {
                     Text("Fix", color = Color.Black, fontWeight = FontWeight.ExtraBold, fontSize = 11.sp)
                 }
             } else {
@@ -726,390 +2151,23 @@ fun ShieldCheckItemRow(
 }
 
 // ============================================================================
-// UPGRADED SUPERHERO ILLUSTRATION CANVAS, HERO CARD & DAILY QUESTS STRIP
+// DAILY QUESTS, ACTIVE FOCUS BANNER & SECTION 1 (HABITS)
 // ============================================================================
 @Composable
-fun AlphaSuperheroCanvas(
-    stage: CharacterStage,
-    modifier: Modifier = Modifier,
-    animateHover: Boolean = false
-) {
-    val primary = Color(stage.primaryColorHex)
-    val secondary = Color(stage.secondaryColorHex)
-    val capeColor = Color(stage.capeColorHex)
-
-    // Smooth GPU hover animation ONLY runs when requested (e.g. inside Hero HQ modal), saving battery on main feed
-    val hoverOffsetY = if (animateHover) {
-        val infiniteTransition = rememberInfiniteTransition(label = "heroHover")
-        val y by infiniteTransition.animateFloat(
-            initialValue = -5f,
-            targetValue = 5f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(1800, easing = FastOutSlowInEasing),
-                repeatMode = RepeatMode.Reverse
-            ),
-            label = "hoverY"
-        )
-        y
-    } else 0f
-
-    Canvas(
-        modifier = modifier.graphicsLayer {
-            translationY = hoverOffsetY
-        }
-    ) {
-        val w = size.width
-        val h = size.height
-        val cx = w * 0.5f
-        val cy = h * 0.54f
-
-        // 1. Multi-layer Cosmic Energy Halo
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(primary.copy(alpha = 0.48f), secondary.copy(alpha = 0.18f), Color.Transparent),
-                center = Offset(cx, cy - h * 0.05f),
-                radius = w * 0.49f
-            ),
-            radius = w * 0.49f,
-            center = Offset(cx, cy - h * 0.05f)
-        )
-
-        if (stage.stageNumber >= 3) {
-            drawCircle(
-                brush = Brush.sweepGradient(listOf(primary, secondary, Color.Transparent, primary)),
-                radius = w * 0.43f,
-                center = Offset(cx, cy - h * 0.04f),
-                style = Stroke(width = 2.dp.toPx())
-            )
-        }
-
-        // 2. Flowing Multi-Tone Cape with Rim Highlight
-        val capePath = Path().apply {
-            moveTo(cx - w * 0.22f, cy - h * 0.14f)
-            lineTo(cx + w * 0.22f, cy - h * 0.14f)
-            lineTo(cx + w * 0.44f, cy + h * 0.38f)
-            lineTo(cx + w * 0.16f, cy + h * 0.33f)
-            lineTo(cx, cy + h * 0.42f)
-            lineTo(cx - w * 0.18f, cy + h * 0.34f)
-            lineTo(cx - w * 0.44f, cy + h * 0.38f)
-            close()
-        }
-        drawPath(
-            path = capePath,
-            brush = Brush.verticalGradient(listOf(capeColor, capeColor.copy(alpha = 0.88f), Color(0xFF070A12)))
-        )
-        drawPath(
-            path = capePath,
-            color = primary.copy(alpha = 0.6f),
-            style = Stroke(width = 1.8.dp.toPx(), join = StrokeJoin.Round)
-        )
-
-        // Stage 5+ Celestial Solar Wings
-        if (stage.stageNumber >= 5) {
-            val leftWing = Path().apply {
-                moveTo(cx - w * 0.18f, cy - h * 0.12f)
-                lineTo(cx - w * 0.48f, cy - h * 0.34f)
-                lineTo(cx - w * 0.38f, cy - h * 0.02f)
-                lineTo(cx - w * 0.45f, cy + h * 0.15f)
-                lineTo(cx - w * 0.20f, cy + h * 0.06f)
-                close()
-            }
-            val rightWing = Path().apply {
-                moveTo(cx + w * 0.18f, cy - h * 0.12f)
-                lineTo(cx + w * 0.48f, cy - h * 0.34f)
-                lineTo(cx + w * 0.38f, cy - h * 0.02f)
-                lineTo(cx + w * 0.45f, cy + h * 0.15f)
-                lineTo(cx + w * 0.20f, cy + h * 0.06f)
-                close()
-            }
-            drawPath(leftWing, brush = Brush.linearGradient(listOf(AppColors.SolarGold, primary)))
-            drawPath(rightWing, brush = Brush.linearGradient(listOf(AppColors.SolarGold, primary)))
-        }
-
-        // 3. Sculpted Metallic V-Taper Battle Suit
-        val shoulderHalf = w * (0.27f + stage.stageNumber * 0.012f)
-        val waistHalf = w * 0.15f
-        val torsoPath = Path().apply {
-            moveTo(cx - shoulderHalf, cy - h * 0.12f)
-            lineTo(cx - w * 0.14f, cy - h * 0.18f)
-            lineTo(cx + w * 0.14f, cy - h * 0.18f)
-            lineTo(cx + shoulderHalf, cy - h * 0.12f)
-            lineTo(cx + waistHalf, cy + h * 0.26f)
-            lineTo(cx, cy + h * 0.33f)
-            lineTo(cx - waistHalf, cy + h * 0.26f)
-            close()
-        }
-        drawPath(
-            path = torsoPath,
-            brush = Brush.linearGradient(
-                colors = listOf(Color(0xFF2B3A55), Color(0xFF131B2E), Color(0xFF070B14)),
-                start = Offset(cx - shoulderHalf, cy - h * 0.18f),
-                end = Offset(cx + shoulderHalf, cy + h * 0.30f)
-            )
-        )
-        drawPath(torsoPath, color = primary, style = Stroke(width = 2.4.dp.toPx(), join = StrokeJoin.Round))
-
-        // Metallic Shoulder Pauldrons
-        val leftPauldron = Path().apply {
-            moveTo(cx - shoulderHalf * 1.10f, cy - h * 0.10f)
-            lineTo(cx - shoulderHalf * 0.54f, cy - h * 0.20f)
-            lineTo(cx - shoulderHalf * 0.46f, cy - h * 0.03f)
-            close()
-        }
-        val rightPauldron = Path().apply {
-            moveTo(cx + shoulderHalf * 1.10f, cy - h * 0.10f)
-            lineTo(cx + shoulderHalf * 0.54f, cy - h * 0.20f)
-            lineTo(cx + shoulderHalf * 0.46f, cy - h * 0.03f)
-            close()
-        }
-        drawPath(leftPauldron, brush = Brush.linearGradient(listOf(primary, secondary)))
-        drawPath(rightPauldron, brush = Brush.linearGradient(listOf(primary, secondary)))
-
-        // 4. Concentric Glowing Chest Arc-Core
-        val crestTop = cy - h * 0.09f
-        val crestBot = cy + h * 0.12f
-        val chestShield = Path().apply {
-            moveTo(cx, crestTop)
-            lineTo(cx + w * 0.12f, crestTop + h * 0.06f)
-            lineTo(cx, crestBot)
-            lineTo(cx - w * 0.12f, crestTop + h * 0.06f)
-            close()
-        }
-        drawPath(chestShield, brush = Brush.radialGradient(listOf(Color.White, secondary, primary)))
-        drawPath(chestShield, color = Color.White, style = Stroke(width = 1.6.dp.toPx()))
-
-        // Utility Belt
-        drawLine(
-            color = AppColors.SolarGold,
-            start = Offset(cx - waistHalf, cy + h * 0.24f),
-            end = Offset(cx + waistHalf, cy + h * 0.24f),
-            strokeWidth = 3.5.dp.toPx(),
-            cap = StrokeCap.Round
-        )
-
-        // 5. Sculpted Cowl & Luminous Eyes
-        val headTop = cy - h * 0.42f
-        val headBot = cy - h * 0.16f
-        val cowlPath = Path().apply {
-            moveTo(cx - w * 0.14f, headTop + h * 0.06f)
-            lineTo(cx - w * 0.18f, headTop - h * 0.06f)
-            lineTo(cx - w * 0.09f, headTop + h * 0.02f)
-            lineTo(cx, headTop)
-            lineTo(cx + w * 0.09f, headTop + h * 0.02f)
-            lineTo(cx + w * 0.18f, headTop - h * 0.06f)
-            lineTo(cx + w * 0.14f, headTop + h * 0.06f)
-            lineTo(cx + w * 0.13f, headBot - h * 0.04f)
-            lineTo(cx, headBot + h * 0.02f)
-            lineTo(cx - w * 0.13f, headBot - h * 0.04f)
-            close()
-        }
-        drawPath(cowlPath, color = Color(0xFF0E1525))
-        drawPath(cowlPath, color = primary, style = Stroke(width = 2.2.dp.toPx(), join = StrokeJoin.Round))
-
-        val eyeY = (headTop + headBot) * 0.52f
-        drawLine(
-            color = Color.White,
-            start = Offset(cx - w * 0.09f, eyeY - h * 0.01f),
-            end = Offset(cx - w * 0.03f, eyeY + h * 0.01f),
-            strokeWidth = 3.2.dp.toPx(),
-            cap = StrokeCap.Round
-        )
-        drawLine(
-            color = Color.White,
-            start = Offset(cx + w * 0.09f, eyeY - h * 0.01f),
-            end = Offset(cx + w * 0.03f, eyeY + h * 0.01f),
-            strokeWidth = 3.2.dp.toPx(),
-            cap = StrokeCap.Round
-        )
-
-        // 6. Photon Energy Gauntlets
-        drawCircle(
-            brush = Brush.radialGradient(listOf(Color.White, secondary, Color.Transparent), center = Offset(cx - shoulderHalf * 1.05f, cy + h * 0.12f), radius = w * 0.11f),
-            radius = w * 0.11f,
-            center = Offset(cx - shoulderHalf * 1.05f, cy + h * 0.12f)
-        )
-        drawCircle(
-            brush = Brush.radialGradient(listOf(Color.White, primary, Color.Transparent), center = Offset(cx + shoulderHalf * 1.05f, cy + h * 0.12f), radius = w * 0.11f),
-            radius = w * 0.11f,
-            center = Offset(cx + shoulderHalf * 1.05f, cy + h * 0.12f)
-        )
-
-        // Stage 6 Omega Crown Halo
-        if (stage.stageNumber >= 6) {
-            drawCircle(
-                color = AppColors.SolarGold,
-                radius = w * 0.19f,
-                center = Offset(cx, headTop - h * 0.02f),
-                style = Stroke(width = 2.5.dp.toPx())
-            )
-        }
-    }
-}
-
-@Composable
-fun AlphaCharacterHeroCard(
-    vm: HabitTrackerViewModel,
-    onOpenSuperheroSheet: () -> Unit
-) {
-    val context = LocalContext.current
-    val stats = vm.cachedCharacterStats.value
-    val stageColor = Color(stats.stage.primaryColorHex)
-
-    Surface(
-        color = AppColors.BgCard,
-        shape = RoundedCornerShape(24.dp),
-        border = BorderStroke(1.2.dp, stageColor.copy(alpha = 0.6f)),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onOpenSuperheroSheet() }
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                AlphaSuperheroCanvas(
-                    stage = stats.stage,
-                    animateHover = false,
-                    modifier = Modifier
-                        .size(84.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(AppColors.BgDeep)
-                        .border(1.5.dp, stageColor.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
-                )
-
-                Spacer(Modifier.width(12.dp))
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Surface(
-                            color = stageColor.copy(alpha = 0.18f),
-                            shape = RoundedCornerShape(6.dp)
-                        ) {
-                            Text(
-                                text = "🦸 ${stats.stage.formName.uppercase()} • MK-${stats.stage.stageNumber}",
-                                color = stageColor,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                        Surface(
-                            color = AppColors.SolarGold.copy(alpha = 0.18f),
-                            shape = RoundedCornerShape(6.dp)
-                        ) {
-                            Text(
-                                text = if (stats.comboMultiplier > 1f) "${stats.comboMultiplier}x COMBO" else "⚡ ${stats.combatPower} CP",
-                                color = AppColors.SolarGold,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
-
-                    Spacer(Modifier.height(4.dp))
-
-                    Text(
-                        text = "${stats.stage.suitName} • ${stats.stage.superpower}",
-                        color = AppColors.TextPrimary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    Spacer(Modifier.height(6.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        CharacterMiniStatPill("💪", stats.strength, AppColors.CrimsonRose)
-                        CharacterMiniStatPill("🧠", stats.intellect, AppColors.CyberCyan)
-                        CharacterMiniStatPill("🔥", stats.willpower, AppColors.SolarGold)
-                        CharacterMiniStatPill("🌿", stats.vitality, AppColors.MintGlow)
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(10.dp))
-
-            Surface(
-                color = AppColors.BgCardElevated,
-                shape = RoundedCornerShape(14.dp),
-                border = BorderStroke(1.dp, stageColor.copy(alpha = 0.35f)),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = stats.heroSpeechBubble,
-                        color = AppColors.TextPrimary,
-                        fontSize = 11.sp,
-                        fontStyle = FontStyle.Italic,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Surface(
-                        color = stageColor,
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.clickable { vm.triggerNewHeroMotivation(context) }
-                    ) {
-                        Text(
-                            text = "⚡ Boost",
-                            color = Color.Black,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun DailyBonusQuestsRow(
-    quests: List<DailyQuestStatus>,
-    onClaimQuest: (DailyQuestStatus) -> Unit
-) {
+fun DailyBonusQuestsRow(quests: List<DailyQuestStatus>, onClaimQuest: (DailyQuestStatus) -> Unit) {
     if (quests.isEmpty()) return
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(
-            text = "🏆 DAILY BONUS QUESTS",
-            color = AppColors.SolarGold,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.ExtraBold,
-            modifier = Modifier.padding(horizontal = 2.dp)
-        )
+        Text("DAILY BONUS QUESTS", color = AppColors.TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp, modifier = Modifier.padding(horizontal = 2.dp))
         LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             items(quests, key = { it.id }) { q ->
-                val borderCol = when {
-                    q.isClaimed -> AppColors.BorderSubtle
-                    q.isCompleted -> AppColors.MintGlow
-                    else -> AppColors.BorderSubtle
-                }
                 Surface(
                     color = AppColors.BgCard,
-                    shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, borderCol),
-                    modifier = Modifier.width(172.dp)
+                    shape = RoundedCornerShape(18.dp),
+                    border = BorderStroke(0.8.dp, if (!q.isClaimed && q.isCompleted) AppColors.MintGlow else AppColors.BorderSubtle),
+                    modifier = Modifier.width(174.dp)
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Text("${q.emoji} ${q.title}", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text("${q.current.coerceAtMost(q.target)}/${q.target}", color = AppColors.MintGlow, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
                         }
@@ -1129,15 +2187,14 @@ fun DailyBonusQuestsRow(
                                 Surface(
                                     color = AppColors.MintGlow,
                                     shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { onClaimQuest(q) }
+                                    modifier = Modifier.fillMaxWidth().studioBounceClick { onClaimQuest(q) }
                                 ) {
                                     Text(
                                         text = "Claim +${q.rewardXp} XP${if (q.grantsShield) " +🛡️" else ""}",
                                         color = Color.Black,
                                         fontWeight = FontWeight.ExtraBold,
                                         fontSize = 11.sp,
+                                        textAlign = TextAlign.Center,
                                         modifier = Modifier.padding(vertical = 4.dp, horizontal = 8.dp)
                                     )
                                 }
@@ -1152,276 +2209,18 @@ fun DailyBonusQuestsRow(
 }
 
 @Composable
-fun CharacterMiniStatPill(label: String, value: Int, color: Color) {
-    Surface(
-        color = AppColors.BgCardElevated,
-        shape = RoundedCornerShape(8.dp),
-        border = BorderStroke(1.dp, color.copy(alpha = 0.35f))
-    ) {
-        Text(
-            text = "$label $value",
-            color = color,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-        )
-    }
-}
-
-@Composable
-fun AlphaSuperheroHeadquartersModal(
-    vm: HabitTrackerViewModel,
-    onDismiss: () -> Unit
-) {
-    val context = LocalContext.current
-    val stats = vm.cachedCharacterStats.value
-    val stageColor = Color(stats.stage.primaryColorHex)
-
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(
-            color = AppColors.BgDeep,
-            shape = RoundedCornerShape(28.dp),
-            border = BorderStroke(1.5.dp, stageColor),
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(12.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "🦸 SUPERHERO UPGRADE HQ",
-                        color = AppColors.TextPrimary,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, null, tint = AppColors.TextSecondary)
-                    }
-                }
-
-                Spacer(Modifier.height(8.dp))
-
-                AlphaSuperheroCanvas(
-                    stage = stats.stage,
-                    animateHover = true,
-                    modifier = Modifier
-                        .size(180.dp)
-                        .clip(RoundedCornerShape(28.dp))
-                        .background(AppColors.BgCard)
-                        .border(2.dp, stageColor, RoundedCornerShape(28.dp))
-                )
-
-                Spacer(Modifier.height(10.dp))
-
-                Text(
-                    text = "${stats.stage.formName} (${stats.stage.title})",
-                    color = stageColor,
-                    fontSize = 21.sp,
-                    fontWeight = FontWeight.ExtraBold
-                )
-                Text(
-                    text = "${stats.stage.suitName}  •  Superpower: ${stats.stage.superpower}",
-                    color = AppColors.SolarGold,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = stats.heroSpeechBubble,
-                    color = AppColors.TextSecondary,
-                    fontSize = 12.sp,
-                    fontStyle = FontStyle.Italic
-                )
-
-                Spacer(Modifier.height(14.dp))
-
-                Surface(
-                    color = AppColors.BgCard,
-                    shape = RoundedCornerShape(20.dp),
-                    border = BorderStroke(1.dp, AppColors.BorderSubtle),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("SUPERHERO POWERS & UPGRADES", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                            Text("Available XP: ${vm.userXp.intValue}", color = AppColors.MintGlow, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
-                        }
-
-                        SuperheroPowerUpgradeRow("💪 Super Strength (Fitness & Health)", stats.strength, AppColors.CrimsonRose) { vm.upgradeSuperheroPower(context, "STR") }
-                        SuperheroPowerUpgradeRow("🧠 Telepathic Intellect (Focus & Vault)", stats.intellect, AppColors.CyberCyan) { vm.upgradeSuperheroPower(context, "INT") }
-                        SuperheroPowerUpgradeRow("🔥 Indomitable Will (Streaks & Missions)", stats.willpower, AppColors.SolarGold) { vm.upgradeSuperheroPower(context, "WIL") }
-                        SuperheroPowerUpgradeRow("🌿 Bio-Regen Vitality (Journal & Rest)", stats.vitality, AppColors.MintGlow) { vm.upgradeSuperheroPower(context, "VIT") }
-                    }
-                }
-
-                Spacer(Modifier.height(16.dp))
-
-                Surface(
-                    color = AppColors.BgCard,
-                    shape = RoundedCornerShape(20.dp),
-                    border = BorderStroke(1.dp, AppColors.BorderSubtle),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Text("SUPERHERO SUIT EVOLUTION ROADMAP", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        CharacterStage.entries.forEach { st ->
-                            val unlocked = stats.stage.stageNumber >= st.stageNumber
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(if (unlocked) Color(st.primaryColorHex).copy(alpha = 0.12f) else AppColors.BgCardElevated)
-                                    .padding(10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "Mk-${st.stageNumber}: ${st.formName} (${st.suitName})",
-                                        color = if (unlocked) Color(st.primaryColorHex) else AppColors.TextMuted,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 13.sp
-                                    )
-                                    Text("Power: ${st.superpower} • Gear: ${st.weaponOrGear}", color = AppColors.TextSecondary, fontSize = 11.sp)
-                                }
-                                Text(
-                                    text = if (unlocked) "ACTIVE ✓" else "LOCKED 🔒",
-                                    color = if (unlocked) AppColors.MintGlow else AppColors.TextMuted,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.ExtraBold
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun SuperheroPowerUpgradeRow(
-    label: String,
-    statValue: Int,
-    color: Color,
-    onUpgrade: () -> Unit
-) {
-    val ratio = (statValue / 300f).coerceIn(0.08f, 1f)
-    Column {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(label, color = AppColors.TextSecondary, fontSize = 12.sp, modifier = Modifier.weight(1f))
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("$statValue", color = color, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
-                Surface(
-                    color = color.copy(alpha = 0.2f),
-                    shape = RoundedCornerShape(8.dp),
-                    border = BorderStroke(1.dp, color),
-                    modifier = Modifier.clickable { onUpgrade() }
-                ) {
-                    Text("+ Boost", color = color, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
-                }
-            }
-        }
-        Spacer(Modifier.height(4.dp))
-        LinearProgressIndicator(
-            progress = { ratio },
-            color = color,
-            trackColor = AppColors.BgCardElevated,
-            modifier = Modifier.fillMaxWidth().height(7.dp).clip(RoundedCornerShape(4.dp))
-        )
-    }
-}
-
-// ============================================================================
-// 5-TAB BOTTOM NAVIGATION DOCK & ACTIVE FOCUS BANNER
-// ============================================================================
-@Composable
-fun StudioFiveTabBottomDock(currentTab: Int, onSelectTab: (Int) -> Unit) {
-    Surface(
-        color = AppColors.BgSurface.copy(alpha = 0.96f),
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        border = BorderStroke(1.dp, AppColors.BorderSubtle),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 9.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            val items = listOf(
-                Triple(0, "Habits", Icons.Default.GridOn),
-                Triple(1, "Tasks", Icons.Default.CheckCircle),
-                Triple(2, "Day Audit", Icons.Default.Timer),
-                Triple(3, "Journal", Icons.Default.Edit),
-                Triple(4, "Vault", Icons.Default.Star)
-            )
-
-            items.forEach { (index, title, icon) ->
-                val selected = currentTab == index
-                val pillBg by animateColorAsState(if (selected) AppColors.MintGlow.copy(alpha = 0.16f) else Color.Transparent, label = "dockBg")
-                val tint by animateColorAsState(if (selected) AppColors.MintGlow else AppColors.TextSecondary, label = "dockTint")
-
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(pillBg)
-                        .clickable { onSelectTab(index) }
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Icon(icon, null, tint = tint, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.height(2.dp))
-                    Text(title, color = tint, fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Medium, fontSize = 11.sp)
-                }
-            }
-        }
-    }
-}
-
-@Composable
 fun ActiveFocusTimerBanner(vm: HabitTrackerViewModel, onExpand: () -> Unit) {
     val context = LocalContext.current
     val rem = vm.focusRemainingSeconds.longValue
     val timeFormatted = String.format(Locale.US, "%02d:%02d", rem / 60, rem % 60)
 
     Surface(
-        color = AppColors.CyberCyan.copy(alpha = 0.16f),
+        color = AppColors.CyberCyan.copy(alpha = 0.14f),
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, AppColors.CyberCyan),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp)
-            .clickable { onExpand() }
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).studioBounceClick(onExpand)
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
+        Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                 Icon(Icons.Default.Timer, null, tint = AppColors.CyberCyan)
                 Spacer(Modifier.width(8.dp))
@@ -1441,13 +2240,10 @@ fun ActiveFocusTimerBanner(vm: HabitTrackerViewModel, onExpand: () -> Unit) {
     }
 }
 
-// ============================================================================
-// SECTION 1 (TAB 0): STUDIO HABIT TRACKER (WITH DAILY QUESTS & GPU HEATMAP)
-// ============================================================================
 @Composable
 fun StudioHabitTrackerSection(
     vm: HabitTrackerViewModel,
-    onOpenSuperheroSheet: () -> Unit,
+    onOpenSentinelSheet: () -> Unit,
     onNewHabit: () -> Unit,
     onEditHabit: (Habit) -> Unit,
     onLaunchFocusTimer: (Habit) -> Unit
@@ -1471,8 +2267,8 @@ fun StudioHabitTrackerSection(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        item(key = "hero_card") {
-            AlphaCharacterHeroCard(vm = vm, onOpenSuperheroSheet = onOpenSuperheroSheet)
+        item(key = "sentinel_hero") {
+            SentinelHeroCard(vm = vm, onOpenSentinelSheet = onOpenSentinelSheet)
         }
 
         item(key = "daily_quests") {
@@ -1491,21 +2287,14 @@ fun StudioHabitTrackerSection(
         }
 
         item(key = "filter_bar") {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                LazyRow(
-                    modifier = Modifier.weight(1f),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                LazyRow(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(TimeOfDay.entries) { tod ->
                         val active = vm.selectedTimeOfDay.value == tod
                         Surface(
-                            color = if (active) AppColors.MintGlow.copy(alpha = 0.18f) else AppColors.BgCard,
+                            color = if (active) AppColors.MintGlow.copy(alpha = 0.16f) else AppColors.BgCard,
                             shape = RoundedCornerShape(12.dp),
-                            border = BorderStroke(1.dp, if (active) AppColors.MintGlow else AppColors.BorderSubtle),
+                            border = BorderStroke(0.8.dp, if (active) AppColors.MintGlow else AppColors.BorderSubtle),
                             modifier = Modifier.clickable { vm.selectedTimeOfDay.value = tod }
                         ) {
                             Text(
@@ -1538,7 +2327,7 @@ fun StudioHabitTrackerSection(
                             HabitViewMode.COMPACT_WEEKLY -> Icons.Default.ViewWeek
                         },
                         contentDescription = "Switch View",
-                        tint = AppColors.ElectricViolet,
+                        tint = AppColors.CyberCyan,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -1600,14 +2389,11 @@ fun InteractiveSevenDayCalendarStrip(
 
     Surface(
         color = AppColors.BgCard,
-        shape = RoundedCornerShape(20.dp),
-        border = BorderStroke(1.dp, AppColors.BorderSubtle),
+        shape = RoundedCornerShape(22.dp),
+        border = BorderStroke(0.8.dp, AppColors.BorderSubtle),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
+        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             days.forEach { date ->
                 val isSelected = date == selectedDate
                 val isToday = date == today
@@ -1631,7 +2417,7 @@ fun InteractiveSevenDayCalendarStrip(
                     Spacer(Modifier.height(5.dp))
                     Box(modifier = Modifier.size(38.dp), contentAlignment = Alignment.Center) {
                         Canvas(modifier = Modifier.fillMaxSize()) {
-                            val stroke = 3.2.dp.toPx()
+                            val stroke = 3.dp.toPx()
                             drawCircle(color = AppColors.BorderSubtle, style = Stroke(width = stroke))
                             drawArc(
                                 color = if (progress >= 1f) AppColors.MintGlow else AppColors.CyberCyan,
@@ -1683,28 +2469,21 @@ fun StudioHabitCard(
     Surface(
         color = AppColors.BgCard,
         shape = RoundedCornerShape(24.dp),
-        border = BorderStroke(1.dp, if (isDone) habit.accentColor.copy(alpha = 0.65f) else AppColors.BorderSubtle),
+        border = BorderStroke(0.9.dp, if (isDone) habit.accentColor.copy(alpha = 0.6f) else AppColors.BorderSubtle),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { onEdit() }
-                        .padding(end = 10.dp)
+                    modifier = Modifier.weight(1f).clickable { onEdit() }.padding(end = 10.dp)
                 ) {
                     Box(
                         modifier = Modifier
                             .size(46.dp)
                             .clip(RoundedCornerShape(15.dp))
-                            .background(habit.accentColor.copy(alpha = 0.16f))
-                            .border(1.dp, habit.accentColor.copy(alpha = 0.45f), RoundedCornerShape(15.dp)),
+                            .background(habit.accentColor.copy(alpha = 0.14f))
+                            .border(0.9.dp, habit.accentColor.copy(alpha = 0.4f), RoundedCornerShape(15.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(habit.emoji, fontSize = 22.sp)
@@ -1726,9 +2505,9 @@ fun StudioHabitCard(
                         .scale(scale)
                         .size(46.dp)
                         .clip(RoundedCornerShape(15.dp))
-                        .background(if (isDone) habit.accentColor else habit.accentColor.copy(alpha = 0.16f))
-                        .border(1.5.dp, habit.accentColor, RoundedCornerShape(15.dp))
-                        .clickable { onToggleOrStep() },
+                        .background(if (isDone) habit.accentColor else habit.accentColor.copy(alpha = 0.15f))
+                        .border(1.4.dp, habit.accentColor, RoundedCornerShape(15.dp))
+                        .studioBounceClick(onToggleOrStep),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -1745,16 +2524,8 @@ fun StudioHabitCard(
 
             Spacer(Modifier.height(10.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.weight(1f)) {
                     Surface(color = AppColors.SolarGold.copy(alpha = 0.14f), shape = RoundedCornerShape(8.dp)) {
                         Text("🔥 $streak d", color = AppColors.SolarGold, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp))
                     }
@@ -1806,10 +2577,6 @@ fun StudioHabitCard(
     }
 }
 
-/**
- * ULTRA-FAST SINGLE-CANVAS 16-WEEK HEATMAP:
- * Replaces 112 separate composable boxes with 1 GPU draw pass for 120fps scrolling & low battery!
- */
 @Composable
 fun GpuSixteenWeekHeatmapCanvas(habit: Habit) {
     val today = remember { LocalDate.now() }
@@ -1817,7 +2584,6 @@ fun GpuSixteenWeekHeatmapCanvas(habit: Habit) {
     val partialAccent = accent.copy(alpha = 0.45f)
     val emptyCol = AppColors.BgCardElevated
 
-    // Precompute 112 cell states only when habit.logs actually changes
     val cellStates = remember(habit.logs, today) {
         IntArray(16 * 7) { index ->
             val w = 15 - (index / 7)
@@ -1831,11 +2597,7 @@ fun GpuSixteenWeekHeatmapCanvas(habit: Habit) {
         }
     }
 
-    Canvas(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(98.dp)
-    ) {
+    Canvas(modifier = Modifier.fillMaxWidth().height(98.dp)) {
         val cols = 16
         val rows = 7
         val gap = 3.5.dp.toPx()
@@ -1845,35 +2607,25 @@ fun GpuSixteenWeekHeatmapCanvas(habit: Habit) {
 
         for (c in 0 until cols) {
             for (r in 0 until rows) {
-                val state = cellStates[c * rows + r]
-                val color = when (state) {
+                val color = when (cellStates[c * rows + r]) {
                     2 -> accent
                     1 -> partialAccent
                     else -> emptyCol
                 }
-                drawRoundRect(
-                    color = color,
-                    topLeft = Offset(c * (cellW + gap), r * (cellH + gap)),
-                    size = Size(cellW, cellH),
-                    cornerRadius = radius
-                )
+                drawRoundRect(color = color, topLeft = Offset(c * (cellW + gap), r * (cellH + gap)), size = Size(cellW, cellH), cornerRadius = radius)
             }
         }
     }
 }
 
 @Composable
-fun SmallToolPillButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    tint: Color,
-    onClick: () -> Unit
-) {
+fun SmallToolPillButton(icon: androidx.compose.ui.graphics.vector.ImageVector, tint: Color, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .size(30.dp)
             .clip(RoundedCornerShape(9.dp))
             .background(AppColors.BgCardElevated)
-            .clickable { onClick() },
+            .studioBounceClick(onClick),
         contentAlignment = Alignment.Center
     ) {
         Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(15.dp))
@@ -1905,7 +2657,7 @@ fun StudioSevenDayInteractiveStrip(habit: Habit, onToggleDate: (LocalDate) -> Un
                                 else -> AppColors.BgCardElevated
                             }
                         )
-                        .border(width = if (isToday) 1.5.dp else 1.dp, color = if (isToday) Color.White else AppColors.BorderSubtle, shape = RoundedCornerShape(10.dp))
+                        .border(width = if (isToday) 1.4.dp else 0.8.dp, color = if (isToday) Color.White else AppColors.BorderSubtle, shape = RoundedCornerShape(10.dp))
                         .clickable { onToggleDate(d) },
                     contentAlignment = Alignment.Center
                 ) {
@@ -1921,7 +2673,7 @@ fun StudioSevenDayInteractiveStrip(habit: Habit, onToggleDate: (LocalDate) -> Un
 }
 
 // ============================================================================
-// SECTION 2 (TAB 1): TO-DO MATRIX WITH AUTOMATIC DAILY RENEWAL & CUSTOM SOUND
+// SECTION 2 (TAB 2): TO-DO MATRIX WITH AUTOMATIC DAILY RENEWAL & CUSTOM SOUND
 // ============================================================================
 @Composable
 fun StudioTodoMatrixSection(vm: HabitTrackerViewModel, onLaunchTaskTimer: (TodoTask) -> Unit) {
@@ -1936,14 +2688,10 @@ fun StudioTodoMatrixSection(vm: HabitTrackerViewModel, onLaunchTaskTimer: (TodoT
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("Alpha Mission Matrix", color = AppColors.TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                Text("Tasks marked 🔄 Auto-Renew reset every new day automatically!", color = AppColors.MintGlow, fontSize = 11.sp)
+                Text("Mission Matrix", color = AppColors.TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text("Tasks marked 🔄 Auto-Renew reset automatically each day", color = AppColors.MintGlow, fontSize = 11.sp)
             }
             Button(
                 onClick = {
@@ -1959,16 +2707,10 @@ fun StudioTodoMatrixSection(vm: HabitTrackerViewModel, onLaunchTaskTimer: (TodoT
             }
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             LazyRow(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 item { FilterChip(selected = selectedPriority == null, onClick = { selectedPriority = null }, label = { Text("All") }) }
-                items(TodoPriority.entries) { prio ->
-                    FilterChip(selected = selectedPriority == prio, onClick = { selectedPriority = prio }, label = { Text(prio.shortTag) })
-                }
+                items(TodoPriority.entries) { prio -> FilterChip(selected = selectedPriority == prio, onClick = { selectedPriority = prio }, label = { Text(prio.shortTag) }) }
             }
             Spacer(Modifier.width(8.dp))
             OutlinedButton(
@@ -2030,22 +2772,19 @@ fun StudioTodoCard(
 
     Surface(
         color = AppColors.BgCard,
-        shape = RoundedCornerShape(20.dp),
-        border = BorderStroke(1.dp, if (task.isCompleted) AppColors.BorderSubtle else prioColor.copy(alpha = 0.45f)),
+        shape = RoundedCornerShape(22.dp),
+        border = BorderStroke(0.9.dp, if (task.isCompleted) AppColors.BorderSubtle else prioColor.copy(alpha = 0.45f)),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth().clickable { onEdit() }
-            ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onEdit() }) {
                 Box(
                     modifier = Modifier
                         .size(26.dp)
                         .clip(CircleShape)
                         .background(if (task.isCompleted) AppColors.MintGlow else Color.Transparent)
                         .border(2.dp, if (task.isCompleted) AppColors.MintGlow else prioColor, CircleShape)
-                        .clickable { onToggleMain() },
+                        .studioBounceClick(onToggleMain),
                     contentAlignment = Alignment.Center
                 ) {
                     if (task.isCompleted) Icon(Icons.Default.Check, null, tint = Color.Black, modifier = Modifier.size(16.dp))
@@ -2065,11 +2804,7 @@ fun StudioTodoCard(
 
             Spacer(Modifier.height(10.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                     Surface(color = prioColor.copy(alpha = 0.16f), shape = RoundedCornerShape(6.dp)) {
                         Text(task.priority.shortTag, color = prioColor, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
@@ -2098,28 +2833,12 @@ fun StudioTodoCard(
 
             if (task.subTasks.isNotEmpty()) {
                 Spacer(Modifier.height(10.dp))
-                Column(
-                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(AppColors.BgCardElevated).padding(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
+                Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(AppColors.BgCardElevated).padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     task.subTasks.forEach { sub ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth().clickable { onToggleSubTask(sub.id) }
-                        ) {
-                            Icon(
-                                imageVector = if (sub.isDone) Icons.Default.CheckBox else Icons.Default.CheckBoxOutlineBlank,
-                                contentDescription = null,
-                                tint = if (sub.isDone) AppColors.MintGlow else AppColors.TextSecondary,
-                                modifier = Modifier.size(17.dp)
-                            )
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onToggleSubTask(sub.id) }) {
+                            Icon(if (sub.isDone) Icons.Default.CheckBox else Icons.Default.CheckBoxOutlineBlank, null, tint = if (sub.isDone) AppColors.MintGlow else AppColors.TextSecondary, modifier = Modifier.size(17.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text(
-                                text = sub.title,
-                                color = if (sub.isDone) AppColors.TextMuted else AppColors.TextPrimary,
-                                fontSize = 13.sp,
-                                textDecoration = if (sub.isDone) TextDecoration.LineThrough else TextDecoration.None
-                            )
+                            Text(sub.title, color = if (sub.isDone) AppColors.TextMuted else AppColors.TextPrimary, fontSize = 13.sp, textDecoration = if (sub.isDone) TextDecoration.LineThrough else TextDecoration.None)
                         }
                     }
                 }
@@ -2129,7 +2848,7 @@ fun StudioTodoCard(
 }
 
 // ============================================================================
-// SECTION 3 (TAB 2): HOURLY DAY PRODUCTIVITY AUDIT (WITH PAST-DAY NAVIGATOR)
+// SECTION 3 (TAB 3): HOURLY DAY PRODUCTIVITY AUDIT (WITH PAST-DAY NAVIGATOR)
 // ============================================================================
 @Composable
 fun StudioDayProductivityAuditSection(vm: HabitTrackerViewModel) {
@@ -2141,6 +2860,11 @@ fun StudioDayProductivityAuditSection(vm: HabitTrackerViewModel) {
 
     val dayScore = vm.getDailyProductivityScore(selectedDate)
     val grade = vm.getDailyProductivityGrade(dayScore)
+    val animatedDayScore by animateFloatAsState(
+        targetValue = dayScore / 100f,
+        animationSpec = spring(stiffness = Spring.StiffnessLow),
+        label = "dayScoreAnim"
+    )
 
     val logsForDay = remember(vm.hourlyLogs.toList(), dateStr) {
         vm.hourlyLogs.filter { it.date == dateStr }.associateBy { it.hour24 }
@@ -2165,21 +2889,11 @@ fun StudioDayProductivityAuditSection(vm: HabitTrackerViewModel) {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item(key = "date_nav") {
-            Surface(
-                color = AppColors.BgCard,
-                shape = RoundedCornerShape(18.dp),
-                border = BorderStroke(1.dp, AppColors.BorderSubtle),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
+            Surface(color = AppColors.BgCard, shape = RoundedCornerShape(18.dp), border = BorderStroke(0.8.dp, AppColors.BorderSubtle), modifier = Modifier.fillMaxWidth()) {
+                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                     IconButton(onClick = { vm.selectedDate.value = selectedDate.minusDays(1) }) {
-                        Icon(Icons.Default.ChevronLeft, contentDescription = "Previous Day", tint = AppColors.TextPrimary)
+                        Icon(Icons.Default.ChevronLeft, "Previous Day", tint = AppColors.TextPrimary)
                     }
-
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -2188,40 +2902,23 @@ fun StudioDayProductivityAuditSection(vm: HabitTrackerViewModel) {
                             .clickable {
                                 DatePickerDialog(
                                     context,
-                                    { _, year, month, dayOfMonth ->
-                                        vm.selectedDate.value = LocalDate.of(year, month + 1, dayOfMonth)
-                                    },
-                                    selectedDate.year,
-                                    selectedDate.monthValue - 1,
-                                    selectedDate.dayOfMonth
+                                    { _, year, month, dayOfMonth -> vm.selectedDate.value = LocalDate.of(year, month + 1, dayOfMonth) },
+                                    selectedDate.year, selectedDate.monthValue - 1, selectedDate.dayOfMonth
                                 ).show()
                             }
                             .padding(horizontal = 10.dp, vertical = 6.dp)
                     ) {
                         Icon(Icons.Default.DateRange, null, tint = AppColors.CyberCyan, modifier = Modifier.size(18.dp))
-                        Text(
-                            text = if (selectedDate == today) "Today ($formattedDate)" else formattedDate,
-                            color = AppColors.TextPrimary,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 14.sp
-                        )
+                        Text(if (selectedDate == today) "Today ($formattedDate)" else formattedDate, color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
-
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (selectedDate != today) {
                             TextButton(onClick = { vm.selectedDate.value = today }) {
                                 Text("Today", color = AppColors.MintGlow, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
-                        IconButton(
-                            onClick = { if (selectedDate.isBefore(today)) vm.selectedDate.value = selectedDate.plusDays(1) },
-                            enabled = selectedDate.isBefore(today)
-                        ) {
-                            Icon(
-                                Icons.Default.ChevronRight,
-                                contentDescription = "Next Day",
-                                tint = if (selectedDate.isBefore(today)) AppColors.TextPrimary else AppColors.TextMuted
-                            )
+                        IconButton(onClick = { if (selectedDate.isBefore(today)) vm.selectedDate.value = selectedDate.plusDays(1) }, enabled = selectedDate.isBefore(today)) {
+                            Icon(Icons.Default.ChevronRight, "Next Day", tint = if (selectedDate.isBefore(today)) AppColors.TextPrimary else AppColors.TextMuted)
                         }
                     }
                 }
@@ -2229,36 +2926,20 @@ fun StudioDayProductivityAuditSection(vm: HabitTrackerViewModel) {
         }
 
         item(key = "score_card") {
-            Surface(
-                color = AppColors.BgCard,
-                shape = RoundedCornerShape(24.dp),
-                border = BorderStroke(1.5.dp, scoreColor.copy(alpha = 0.6f)),
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            Surface(color = AppColors.BgCard, shape = RoundedCornerShape(24.dp), border = BorderStroke(1.2.dp, scoreColor.copy(alpha = 0.55f)), modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(18.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("📊 PRODUCTIVITY REPORT • ${formattedDate.uppercase()}", color = scoreColor, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
+                            Text("PRODUCTIVITY REPORT • ${formattedDate.uppercase()}", color = scoreColor, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
                             Spacer(Modifier.height(4.dp))
                             Text("Grade: $grade", color = AppColors.TextPrimary, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold)
-                            Text("Log every hour. Unproductive hours deduct score & Superhero XP!", color = AppColors.TextSecondary, fontSize = 11.sp)
+                            Text("Log every hour honestly. Wasted hours deduct score & XP.", color = AppColors.TextSecondary, fontSize = 11.sp)
                         }
-
-                        Box(modifier = Modifier.size(74.dp), contentAlignment = Alignment.Center) {
+                        Box(modifier = Modifier.size(72.dp), contentAlignment = Alignment.Center) {
                             Canvas(modifier = Modifier.fillMaxSize()) {
-                                val stroke = 7.dp.toPx()
+                                val stroke = 6.5.dp.toPx()
                                 drawCircle(color = AppColors.BgCardElevated, style = Stroke(stroke))
-                                drawArc(
-                                    color = scoreColor,
-                                    startAngle = -90f,
-                                    sweepAngle = 360f * (dayScore / 100f),
-                                    useCenter = false,
-                                    style = Stroke(width = stroke, cap = StrokeCap.Round)
-                                )
+                                drawArc(color = scoreColor, startAngle = -90f, sweepAngle = 360f * animatedDayScore, useCenter = false, style = Stroke(width = stroke, cap = StrokeCap.Round))
                             }
                             Text("$dayScore%", color = AppColors.TextPrimary, fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
                         }
@@ -2269,12 +2950,7 @@ fun StudioDayProductivityAuditSection(vm: HabitTrackerViewModel) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         AuditStatPill(Modifier.weight(1f), "🔥 Productive", "$peakHours hrs", AppColors.MintGlow)
                         AuditStatPill(Modifier.weight(1f), "💀 Wasted", "$wastedHours hrs", AppColors.CrimsonRose)
-                        AuditStatPill(
-                            Modifier.weight(1f),
-                            "⚡ Net Hero XP",
-                            if (netXpDay >= 0) "+$netXpDay XP" else "$netXpDay XP",
-                            if (netXpDay >= 0) AppColors.SolarGold else AppColors.CrimsonRose
-                        )
+                        AuditStatPill(Modifier.weight(1f), "⚡ Net XP", if (netXpDay >= 0) "+$netXpDay XP" else "$netXpDay XP", if (netXpDay >= 0) AppColors.SolarGold else AppColors.CrimsonRose)
                     }
                 }
             }
@@ -2283,23 +2959,18 @@ fun StudioDayProductivityAuditSection(vm: HabitTrackerViewModel) {
         item(key = "ledger_header") {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("⏰ Hourly Activity Ledger (6 AM – 11 PM)", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                Text("Tap any hour to edit", color = AppColors.CyberCyan, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                Text("Tap to log", color = AppColors.CyberCyan, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
             }
         }
 
         val hoursList = (6..23).toList()
         items(hoursList, key = { "$dateStr-$it" }) { hour24 ->
-            val loggedItem = logsForDay[hour24]
             HourlySlotCard(
                 hour24 = hour24,
-                loggedItem = loggedItem,
+                loggedItem = logsForDay[hour24],
                 onClick = { editingHour24 = hour24 },
-                onQuickPenalty = {
-                    vm.logOrUpdateHour(context, hour24, "Wasted time / Unproductive hour", HourProductivityStatus.TIME_WASTED, selectedDate)
-                },
-                onQuickFlow = {
-                    vm.logOrUpdateHour(context, hour24, "Focused productive work block", HourProductivityStatus.PEAK_FLOW, selectedDate)
-                }
+                onQuickPenalty = { vm.logOrUpdateHour(context, hour24, "Wasted time / Unproductive hour", HourProductivityStatus.TIME_WASTED, selectedDate) },
+                onQuickFlow = { vm.logOrUpdateHour(context, hour24, "Focused productive work block", HourProductivityStatus.PEAK_FLOW, selectedDate) }
             )
         }
 
@@ -2325,12 +2996,7 @@ fun StudioDayProductivityAuditSection(vm: HabitTrackerViewModel) {
 
 @Composable
 fun AuditStatPill(modifier: Modifier, title: String, value: String, color: Color) {
-    Surface(
-        modifier = modifier,
-        color = AppColors.BgCardElevated,
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, color.copy(alpha = 0.35f))
-    ) {
+    Surface(modifier = modifier, color = AppColors.BgCardElevated, shape = RoundedCornerShape(13.dp), border = BorderStroke(0.8.dp, color.copy(alpha = 0.3f))) {
         Column(modifier = Modifier.padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(title, color = AppColors.TextSecondary, fontSize = 10.sp)
             Spacer(Modifier.height(2.dp))
@@ -2353,14 +3019,10 @@ fun HourlySlotCard(
     Surface(
         color = if (loggedItem != null) AppColors.BgCard else AppColors.BgSurface,
         shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, if (loggedItem != null) statusColor.copy(alpha = 0.55f) else AppColors.BorderSubtle),
+        border = BorderStroke(0.9.dp, if (loggedItem != null) statusColor.copy(alpha = 0.55f) else AppColors.BorderSubtle),
         modifier = Modifier.fillMaxWidth().clickable { onClick() }
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
+        Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             Surface(color = if (loggedItem != null) statusColor.copy(alpha = 0.16f) else AppColors.BgCardElevated, shape = RoundedCornerShape(10.dp)) {
                 Text(timeLabel, color = if (loggedItem != null) statusColor else AppColors.TextSecondary, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
             }
@@ -2373,7 +3035,7 @@ fun HourlySlotCard(
                     Spacer(Modifier.height(2.dp))
                     Text("${loggedItem.status.label} (${loggedItem.status.shortBadge})", color = statusColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 } else {
-                    Text("Unlogged hour • Tap to record what you did", color = AppColors.TextMuted, fontSize = 13.sp)
+                    Text("Unlogged hour • Tap to record", color = AppColors.TextMuted, fontSize = 13.sp)
                 }
             }
 
@@ -2381,27 +3043,13 @@ fun HourlySlotCard(
 
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(AppColors.MintGlow.copy(alpha = 0.16f))
-                        .border(1.dp, AppColors.MintGlow.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-                        .clickable { onQuickFlow() },
+                    modifier = Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)).background(AppColors.MintGlow.copy(alpha = 0.16f)).border(0.8.dp, AppColors.MintGlow.copy(alpha = 0.5f), RoundedCornerShape(8.dp)).studioBounceClick(onQuickFlow),
                     contentAlignment = Alignment.Center
-                ) {
-                    Text("+⚡", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AppColors.MintGlow)
-                }
+                ) { Text("+⚡", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AppColors.MintGlow) }
                 Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(AppColors.CrimsonRose.copy(alpha = 0.16f))
-                        .border(1.dp, AppColors.CrimsonRose.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-                        .clickable { onQuickPenalty() },
+                    modifier = Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)).background(AppColors.CrimsonRose.copy(alpha = 0.16f)).border(0.8.dp, AppColors.CrimsonRose.copy(alpha = 0.5f), RoundedCornerShape(8.dp)).studioBounceClick(onQuickPenalty),
                     contentAlignment = Alignment.Center
-                ) {
-                    Text("-💀", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AppColors.CrimsonRose)
-                }
+                ) { Text("-💀", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AppColors.CrimsonRose) }
             }
         }
     }
@@ -2427,7 +3075,7 @@ fun LogHourActivityDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("What did you do during this hour?") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
-                Text("Productivity Rating (Impacts Score & Hero XP):", color = AppColors.TextSecondary, fontSize = 12.sp)
+                Text("Productivity Rating (Impacts Score & XP):", color = AppColors.TextSecondary, fontSize = 12.sp)
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     HourProductivityStatus.entries.forEach { st ->
                         val selected = status == st
@@ -2453,9 +3101,7 @@ fun LogHourActivityDialog(
         },
         dismissButton = {
             Row {
-                if (existingLog != null) {
-                    TextButton(onClick = onDelete) { Text("Clear", color = AppColors.CrimsonRose) }
-                }
+                if (existingLog != null) TextButton(onClick = onDelete) { Text("Clear", color = AppColors.CrimsonRose) }
                 TextButton(onClick = onDismiss) { Text("Cancel") }
             }
         }
@@ -2463,7 +3109,7 @@ fun LogHourActivityDialog(
 }
 
 // ============================================================================
-// SECTION 4 (TAB 3): EYE-SOOTHING SANCTUARY JOURNAL
+// SANCTUARY JOURNAL & KNOWLEDGE VAULT SECTIONS
 // ============================================================================
 @Composable
 fun StudioReflectionJournalSection(vm: HabitTrackerViewModel) {
@@ -2473,11 +3119,11 @@ fun StudioReflectionJournalSection(vm: HabitTrackerViewModel) {
     val theme = vm.readingTheme.value
     val fontScale = vm.readingFontScale.floatValue
 
-    Column(modifier = Modifier.fillMaxSize().background(theme.bgColor).padding(horizontal = 16.dp)) {
-        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("Sanctuary Journal", color = theme.textPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Serif)
-                Text("Eye-soothing reflections, wins & photo memories", color = theme.textSecondary, fontSize = 12.sp)
+                Text("Sanctuary Journal", color = theme.textPrimary, fontSize = 19.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Serif)
+                Text("Eye-soothing reflections & photo memories", color = theme.textSecondary, fontSize = 12.sp)
             }
             Button(
                 onClick = {
@@ -2487,7 +3133,7 @@ fun StudioReflectionJournalSection(vm: HabitTrackerViewModel) {
                 colors = ButtonDefaults.buttonColors(containerColor = theme.accent),
                 shape = RoundedCornerShape(14.dp)
             ) {
-                Icon(Icons.Default.Edit, null, tint = Color.Black)
+                Icon(Icons.Default.Edit, null, tint = Color.Black, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
                 Text("Write", color = Color.Black, fontWeight = FontWeight.Bold)
             }
@@ -2552,7 +3198,7 @@ fun SanctuaryComfortBar(
                 Surface(
                     color = if (active) st.accent.copy(alpha = 0.22f) else st.cardColor,
                     shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, if (active) st.accent else st.borderColor),
+                    border = BorderStroke(0.8.dp, if (active) st.accent else st.borderColor),
                     modifier = Modifier.clickable { onSelectTheme(st) }
                 ) {
                     Text(st.label, color = if (active) st.accent else st.textSecondary, fontSize = 11.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.Normal, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
@@ -2562,7 +3208,7 @@ fun SanctuaryComfortBar(
         Spacer(Modifier.width(8.dp))
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(currentTheme.cardColor).border(1.dp, currentTheme.borderColor, RoundedCornerShape(10.dp))
+            modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(currentTheme.cardColor).border(0.8.dp, currentTheme.borderColor, RoundedCornerShape(10.dp))
         ) {
             Text("A-", color = currentTheme.textSecondary, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { onChangeFontScale(fontScale - 0.1f) }.padding(horizontal = 8.dp, vertical = 5.dp))
             Text("A+", color = currentTheme.accent, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { onChangeFontScale(fontScale + 0.1f) }.padding(horizontal = 8.dp, vertical = 5.dp))
@@ -2581,12 +3227,7 @@ fun StudioJournalEntryCard(
     val bodyFontSize = (15f * fontScale).sp
     val bodyLineHeight = (23f * fontScale).sp
 
-    Surface(
-        color = theme.cardColor,
-        shape = RoundedCornerShape(24.dp),
-        border = BorderStroke(1.dp, theme.borderColor),
-        modifier = Modifier.fillMaxWidth().clickable { onEdit() }
-    ) {
+    Surface(color = theme.cardColor, shape = RoundedCornerShape(24.dp), border = BorderStroke(0.8.dp, theme.borderColor), modifier = Modifier.fillMaxWidth().clickable { onEdit() }) {
         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
@@ -2633,7 +3274,7 @@ fun StudioJournalEntryCard(
             if (entry.frictionOrMistakes.isNotBlank()) {
                 Surface(color = AppColors.CrimsonRose.copy(alpha = 0.1f), shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(12.dp)) {
-                        Text("🔍 REFLECTION ON MISTAKES / FRICTION", color = AppColors.CrimsonRose, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
+                        Text("🔍 REFLECTION ON FRICTION", color = AppColors.CrimsonRose, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
                         Spacer(Modifier.height(4.dp))
                         Text(entry.frictionOrMistakes, color = theme.textPrimary, fontSize = (13.5f * fontScale).sp, lineHeight = (20f * fontScale).sp)
                     }
@@ -2653,9 +3294,6 @@ fun StudioJournalEntryCard(
     }
 }
 
-// ============================================================================
-// SECTION 5 (TAB 4): SECOND-BRAIN VAULT
-// ============================================================================
 @Composable
 fun StudioSecondBrainNotebookSection(vm: HabitTrackerViewModel) {
     val context = LocalContext.current
@@ -2674,11 +3312,11 @@ fun StudioSecondBrainNotebookSection(vm: HabitTrackerViewModel) {
         }.sortedByDescending { it.isPinned }
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(theme.bgColor).padding(horizontal = 16.dp)) {
-        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("Second-Brain Vault", color = theme.textPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Serif)
-                Text("Book summaries, quotes & active recall", color = theme.textSecondary, fontSize = 12.sp)
+                Text("Second-Brain Vault", color = theme.textPrimary, fontSize = 19.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Serif)
+                Text("Notes, mental models & active recall", color = theme.textSecondary, fontSize = 12.sp)
             }
             Button(
                 onClick = {
@@ -2688,7 +3326,7 @@ fun StudioSecondBrainNotebookSection(vm: HabitTrackerViewModel) {
                 colors = ButtonDefaults.buttonColors(containerColor = theme.accent),
                 shape = RoundedCornerShape(14.dp)
             ) {
-                Icon(Icons.Default.Add, null, tint = Color.Black)
+                Icon(Icons.Default.Add, null, tint = Color.Black, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
                 Text("New Note", color = Color.Black, fontWeight = FontWeight.Bold)
             }
@@ -2710,7 +3348,7 @@ fun StudioSecondBrainNotebookSection(vm: HabitTrackerViewModel) {
         OutlinedTextField(
             value = query,
             onValueChange = { query = it },
-            placeholder = { Text("Search books, authors, quotes, or takeaways...") },
+            placeholder = { Text("Search notes, quotes, or takeaways...") },
             leadingIcon = { Icon(Icons.Default.Search, null, tint = theme.textSecondary) },
             singleLine = true,
             shape = RoundedCornerShape(16.dp),
@@ -2769,12 +3407,7 @@ fun StudioNotebookCard(
     val bodyFontSize = (14.5f * fontScale).sp
     val bodyLineHeight = (22f * fontScale).sp
 
-    Surface(
-        color = theme.cardColor,
-        shape = RoundedCornerShape(24.dp),
-        border = BorderStroke(1.dp, accent.copy(alpha = 0.5f)),
-        modifier = Modifier.fillMaxWidth().clickable { onEdit() }
-    ) {
+    Surface(color = theme.cardColor, shape = RoundedCornerShape(24.dp), border = BorderStroke(0.9.dp, accent.copy(alpha = 0.5f)), modifier = Modifier.fillMaxWidth().clickable { onEdit() }) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(modifier = Modifier.width(6.dp).height(52.dp).clip(RoundedCornerShape(4.dp)).background(accent))
@@ -2791,9 +3424,7 @@ fun StudioNotebookCard(
                     Text(note.authorOrSubtitle, color = theme.textSecondary, fontSize = 13.sp)
                 }
 
-                IconButton(onClick = onTogglePin) {
-                    Icon(Icons.Default.PushPin, "Pin", tint = if (note.isPinned) AppColors.SolarGold else theme.textSecondary.copy(alpha = 0.4f))
-                }
+                IconButton(onClick = onTogglePin) { Icon(Icons.Default.PushPin, "Pin", tint = if (note.isPinned) AppColors.SolarGold else theme.textSecondary.copy(alpha = 0.4f)) }
                 IconButton(onClick = onEdit, modifier = Modifier.size(30.dp)) { Icon(Icons.Default.Edit, "Edit", tint = theme.textSecondary, modifier = Modifier.size(16.dp)) }
                 IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) { Icon(Icons.Default.Delete, "Delete", tint = theme.textSecondary, modifier = Modifier.size(18.dp)) }
             }
@@ -2825,7 +3456,7 @@ fun StudioNotebookCard(
                 Surface(
                     color = accent.copy(alpha = 0.12f),
                     shape = RoundedCornerShape(14.dp),
-                    border = BorderStroke(1.dp, accent.copy(alpha = 0.4f)),
+                    border = BorderStroke(0.9.dp, accent.copy(alpha = 0.4f)),
                     modifier = Modifier.fillMaxWidth().clickable { flipped = !flipped }
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
@@ -2857,12 +3488,7 @@ fun CustomAudioPickerRow(customSoundUri: String, onSoundSelected: (String) -> Un
         }
     }
 
-    Surface(
-        color = AppColors.ElectricViolet.copy(alpha = 0.12f),
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, AppColors.ElectricViolet.copy(alpha = 0.45f)),
-        modifier = Modifier.fillMaxWidth()
-    ) {
+    Surface(color = AppColors.ElectricViolet.copy(alpha = 0.12f), shape = RoundedCornerShape(12.dp), border = BorderStroke(0.9.dp, AppColors.ElectricViolet.copy(alpha = 0.45f)), modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
@@ -2870,13 +3496,7 @@ fun CustomAudioPickerRow(customSoundUri: String, onSoundSelected: (String) -> Un
                     Text(fileName, color = AppColors.TextPrimary, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 if (customSoundUri.isNotBlank()) {
-                    IconButton(
-                        onClick = {
-                            CelebrationSoundEngine.stopActiveCustomSound()
-                            onSoundSelected("")
-                        },
-                        modifier = Modifier.size(26.dp)
-                    ) {
+                    IconButton(onClick = { CelebrationSoundEngine.stopActiveCustomSound(); onSoundSelected("") }, modifier = Modifier.size(26.dp)) {
                         Icon(Icons.Default.Close, "Reset", tint = AppColors.CrimsonRose, modifier = Modifier.size(16.dp))
                     }
                 }
@@ -2926,7 +3546,7 @@ fun StudioCreateOrEditHabitDialog(
     var selectedColor by remember { mutableLongStateOf(habitToEdit?.colorHex ?: 0xFF34D399L) }
 
     val context = LocalContext.current
-    val colorChoices = listOf(0xFF34D399L, 0xFFA855F7L, 0xFF06B6D4L, 0xFFF97316L, 0xFFF59E0BL, 0xFFF43F5EL)
+    val colorChoices = listOf(0xFF34D399L, 0xFFA855F7L, 0xFF38BDF8L, 0xFFF97316L, 0xFFF59E0BL, 0xFFF43F5EL)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -2972,10 +3592,7 @@ fun StudioCreateOrEditHabitDialog(
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     colorChoices.forEach { hex ->
                         Box(
-                            modifier = Modifier
-                                .size(30.dp)
-                                .clip(CircleShape)
-                                .background(Color(hex))
+                            modifier = Modifier.size(30.dp).clip(CircleShape).background(Color(hex))
                                 .border(width = if (selectedColor == hex) 2.5.dp else 0.dp, color = Color.White, shape = CircleShape)
                                 .clickable { selectedColor = hex }
                         )
@@ -2987,16 +3604,11 @@ fun StudioCreateOrEditHabitDialog(
             Button(
                 onClick = {
                     if (title.isNotBlank()) {
-                        onSave(
-                            habitToEdit?.id, title, emoji, category, timeOfDay, cue, type, selectedColor,
-                            target.toFloatOrNull() ?: 1f, unit, step.toFloatOrNull() ?: 1f, reminder, customSoundUri
-                        )
+                        onSave(habitToEdit?.id, title, emoji, category, timeOfDay, cue, type, selectedColor, target.toFloatOrNull() ?: 1f, unit, step.toFloatOrNull() ?: 1f, reminder, customSoundUri)
                     }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = AppColors.MintGlow)
-            ) {
-                Text("Save Habit", color = Color.Black, fontWeight = FontWeight.Bold)
-            }
+            ) { Text("Save Habit", color = Color.Black, fontWeight = FontWeight.Bold) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
@@ -3038,19 +3650,12 @@ fun StudioAddOrEditTodoDialog(
                             TimePickerDialog(context, { _, h, m -> reminder = String.format(Locale.US, "%02d:%02d", h, m) }, initH, initM, true).show()
                         },
                         border = BorderStroke(1.dp, AppColors.CyberCyan)
-                    ) {
-                        Text(if (reminder.isBlank()) "🔔 Set Time" else "🔔 $reminder", color = AppColors.CyberCyan, fontSize = 12.sp)
-                    }
+                    ) { Text(if (reminder.isBlank()) "🔔 Set Time" else "🔔 $reminder", color = AppColors.CyberCyan, fontSize = 12.sp) }
                 }
 
                 CustomAudioPickerRow(customSoundUri = customSoundUri, onSoundSelected = { customSoundUri = it })
 
-                Surface(
-                    color = AppColors.MintGlow.copy(alpha = 0.12f),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, AppColors.MintGlow.copy(alpha = 0.4f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                Surface(color = AppColors.MintGlow.copy(alpha = 0.12f), shape = RoundedCornerShape(12.dp), border = BorderStroke(0.9.dp, AppColors.MintGlow.copy(alpha = 0.4f)), modifier = Modifier.fillMaxWidth()) {
                     Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text("🔄 Auto-Renew Every Day", color = AppColors.MintGlow, fontWeight = FontWeight.Bold, fontSize = 13.sp)
@@ -3071,9 +3676,7 @@ fun StudioAddOrEditTodoDialog(
                     }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = AppColors.MintGlow)
-            ) {
-                Text("Save Mission", color = Color.Black, fontWeight = FontWeight.Bold)
-            }
+            ) { Text("Save Mission", color = Color.Black, fontWeight = FontWeight.Bold) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
@@ -3105,9 +3708,7 @@ fun StudioCreateOrEditJournalDialog(
                 Text(if (entryToEdit == null) "Log Sanctuary Reflection" else "Edit Journal Entry", color = AppColors.TextPrimary, fontSize = 19.sp, fontWeight = FontWeight.Bold)
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("🔥", "🌟", "😊", "🧘", "💪", "🌧️").forEach { e ->
-                        FilterChip(selected = mood == e, onClick = { mood = e }, label = { Text(e, fontSize = 16.sp) })
-                    }
+                    listOf("🔥", "🌟", "😊", "🧘", "💪", "🌧️").forEach { e -> FilterChip(selected = mood == e, onClick = { mood = e }, label = { Text(e, fontSize = 16.sp) }) }
                 }
 
                 Text("Energy Level: ${energy.roundToInt()}/10", color = AppColors.MintGlow, fontSize = 13.sp, fontWeight = FontWeight.Bold)
@@ -3127,7 +3728,7 @@ fun StudioCreateOrEditJournalDialog(
                     Text("Attach Memory Photos (${photos.size} attached)", color = AppColors.ElectricViolet)
                 }
 
-                OutlinedTextField(value = mistakes, onValueChange = { mistakes = it }, label = { Text("What went wrong / Mistakes made?") }, minLines = 2, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = mistakes, onValueChange = { mistakes = it }, label = { Text("What went wrong / Friction?") }, minLines = 2, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = actionsRaw, onValueChange = { actionsRaw = it }, label = { Text("Actions I must take (1 per line)") }, minLines = 2, modifier = Modifier.fillMaxWidth())
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -3146,9 +3747,7 @@ fun StudioCreateOrEditJournalDialog(
                             )
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = AppColors.MintGlow)
-                    ) {
-                        Text("Save Entry", color = Color.Black, fontWeight = FontWeight.Bold)
-                    }
+                    ) { Text("Save Entry", color = Color.Black, fontWeight = FontWeight.Bold) }
                 }
             }
         }
@@ -3156,11 +3755,7 @@ fun StudioCreateOrEditJournalDialog(
 }
 
 @Composable
-fun StudioCreateOrEditNoteDialog(
-    noteToEdit: NotebookEntry?,
-    onDismiss: () -> Unit,
-    onSave: (NotebookEntry) -> Unit
-) {
+fun StudioCreateOrEditNoteDialog(noteToEdit: NotebookEntry?, onDismiss: () -> Unit, onSave: (NotebookEntry) -> Unit) {
     var category by remember { mutableStateOf(noteToEdit?.category ?: NoteCategory.BOOK_SUMMARY) }
     var title by remember { mutableStateOf(noteToEdit?.title ?: "") }
     var author by remember { mutableStateOf(noteToEdit?.authorOrSubtitle ?: "") }
@@ -3180,14 +3775,14 @@ fun StudioCreateOrEditNoteDialog(
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     items(NoteCategory.entries) { c -> FilterChip(selected = category == c, onClick = { category = c }, label = { Text(c.label, fontSize = 11.sp) }) }
                 }
-                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Book / Note Title") })
+                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Title") })
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(value = author, onValueChange = { author = it }, label = { Text("Author / Topic") }, modifier = Modifier.weight(1f))
                     if (category == NoteCategory.BOOK_SUMMARY) {
                         OutlinedTextField(value = progress, onValueChange = { progress = it }, label = { Text("% Read") }, modifier = Modifier.width(80.dp))
                     }
                 }
-                OutlinedTextField(value = quote, onValueChange = { quote = it }, label = { Text("Favorite Quote") })
+                OutlinedTextField(value = quote, onValueChange = { quote = it }, label = { Text("Key Principle / Quote") })
                 OutlinedTextField(value = takeaways, onValueChange = { takeaways = it }, label = { Text("Key Takeaways (1 per line)") }, minLines = 2)
                 OutlinedTextField(value = notes, onValueChange = { notes = it }, label = { Text("Detailed Summary / Notes") }, minLines = 3)
                 OutlinedTextField(value = flashQ, onValueChange = { flashQ = it }, label = { Text("Flashcard Question") })
@@ -3216,9 +3811,7 @@ fun StudioCreateOrEditNoteDialog(
                     }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = AppColors.ElectricViolet)
-            ) {
-                Text("Save Note", color = Color.Black, fontWeight = FontWeight.Bold)
-            }
+            ) { Text("Save Note", color = Color.Black, fontWeight = FontWeight.Bold) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
@@ -3251,7 +3844,7 @@ fun FocusTimerStudioDialog(vm: HabitTrackerViewModel, onDismiss: () -> Unit) {
     }
 
     Dialog(onDismissRequest = onDismiss) {
-        Surface(color = AppColors.BgCard, shape = RoundedCornerShape(28.dp), border = BorderStroke(1.5.dp, AppColors.CyberCyan), modifier = Modifier.fillMaxWidth()) {
+        Surface(color = AppColors.BgCard, shape = RoundedCornerShape(28.dp), border = BorderStroke(1.2.dp, AppColors.CyberCyan), modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(selected = mode == 0, onClick = { mode = 0 }, label = { Text("⏱️ Focus Timer") })
@@ -3322,15 +3915,10 @@ fun FocusTimerStudioDialog(vm: HabitTrackerViewModel, onDismiss: () -> Unit) {
 @Composable
 fun StudioAnalyticsModal(vm: HabitTrackerViewModel, onDismiss: () -> Unit) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(
-            color = AppColors.BgDeep,
-            shape = RoundedCornerShape(28.dp),
-            border = BorderStroke(1.dp, AppColors.BorderSubtle),
-            modifier = Modifier.fillMaxSize().padding(12.dp)
-        ) {
+        Surface(color = AppColors.BgDeep, shape = RoundedCornerShape(28.dp), border = BorderStroke(0.9.dp, AppColors.BorderSubtle), modifier = Modifier.fillMaxSize().padding(12.dp)) {
             Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("📊 Alpha Performance Analytics", color = AppColors.TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text("📊 Performance Analytics", color = AppColors.TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, null, tint = AppColors.TextSecondary) }
                 }
 
@@ -3339,12 +3927,12 @@ fun StudioAnalyticsModal(vm: HabitTrackerViewModel, onDismiss: () -> Unit) {
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     StatBox(Modifier.weight(1f), "🔥", "$best d", "Peak Streak", AppColors.SunsetCoral)
-                    StatBox(Modifier.weight(1f), "📈", "$avg%", "30d Consistency", AppColors.MintGlow)
-                    StatBox(Modifier.weight(1f), "⚡", "Lv.${vm.userLevel}", "${vm.userXp.intValue} XP", AppColors.ElectricViolet)
+                    StatBox(Modifier.weight(1f), "📈", "$avg%", "30d Rate", AppColors.MintGlow)
+                    StatBox(Modifier.weight(1f), "🎯", "${vm.goals.count { it.isCompleted }}/${vm.goals.size}", "Goals Hit", AppColors.CyberCyan)
                 }
 
                 vm.habits.forEach { habit ->
-                    Surface(color = AppColors.BgCard, shape = RoundedCornerShape(18.dp), border = BorderStroke(1.dp, AppColors.BorderSubtle), modifier = Modifier.fillMaxWidth()) {
+                    Surface(color = AppColors.BgCard, shape = RoundedCornerShape(18.dp), border = BorderStroke(0.8.dp, AppColors.BorderSubtle), modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Text("${habit.emoji} ${habit.title}", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold)
@@ -3362,7 +3950,7 @@ fun StudioAnalyticsModal(vm: HabitTrackerViewModel, onDismiss: () -> Unit) {
 
 @Composable
 fun StatBox(modifier: Modifier, icon: String, value: String, label: String, accent: Color) {
-    Surface(modifier = modifier, color = AppColors.BgCard, shape = RoundedCornerShape(18.dp), border = BorderStroke(1.dp, accent.copy(alpha = 0.4f))) {
+    Surface(modifier = modifier, color = AppColors.BgCard, shape = RoundedCornerShape(18.dp), border = BorderStroke(0.8.dp, accent.copy(alpha = 0.4f))) {
         Column(modifier = Modifier.padding(14.dp)) {
             Text(icon, fontSize = 20.sp)
             Spacer(Modifier.height(6.dp))
@@ -3405,11 +3993,11 @@ fun GoogleDriveBackupVaultDialog(vm: HabitTrackerViewModel, onDismiss: () -> Uni
         title = { Text("☁️ Google Drive Backup", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("All habits, custom sounds, Superhero upgrades, quests, day audits, tasks, and notes are securely backed up.", color = AppColors.TextSecondary, fontSize = 13.sp)
+                Text("All habits, goals, daily work logs, custom sounds, Sentinel progression, audits, tasks, and notes are securely backed up.", color = AppColors.TextSecondary, fontSize = 13.sp)
                 OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Google Email") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Text("Last Sync: ${vm.lastCloudBackup.value}", color = AppColors.MintGlow, fontSize = 12.sp)
 
-                OutlinedButton(onClick = { exportLauncher.launch("AlphaApex_v5_Backup.json") }, modifier = Modifier.fillMaxWidth(), border = BorderStroke(1.dp, AppColors.MintGlow)) {
+                OutlinedButton(onClick = { exportLauncher.launch("AlphaStudio_v6_Backup.json") }, modifier = Modifier.fillMaxWidth(), border = BorderStroke(1.dp, AppColors.MintGlow)) {
                     Icon(Icons.Default.CloudUpload, null, tint = AppColors.MintGlow)
                     Spacer(Modifier.width(8.dp))
                     Text("Export to Google Drive", color = AppColors.MintGlow)
@@ -3430,9 +4018,7 @@ fun GoogleDriveBackupVaultDialog(vm: HabitTrackerViewModel, onDismiss: () -> Uni
                     onDismiss()
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = AppColors.MintGlow)
-            ) {
-                Text("Save", color = Color.Black, fontWeight = FontWeight.Bold)
-            }
+            ) { Text("Save", color = Color.Black, fontWeight = FontWeight.Bold) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } }
     )
@@ -3442,6 +4028,7 @@ private data class StudioParticle(val vx: Float, val vy: Float, val color: Color
 
 @Composable
 fun StudioFullScreenCelebrationOverlay(
+    stage: CharacterStage,
     title: String,
     subtitle: String,
     xpEarned: Int,
@@ -3449,25 +4036,24 @@ fun StudioFullScreenCelebrationOverlay(
     rank: String,
     onDismiss: () -> Unit
 ) {
-    // 55 GPU particles for crisp 120fps bursts with minimal energy draw
     val particles = remember {
-        List(55) {
+        List(50) {
             val angle = Random.nextDouble(0.0, 2.0 * Math.PI)
-            val speed = Random.nextFloat() * 900f + 220f
+            val speed = Random.nextFloat() * 880f + 220f
             StudioParticle(
                 vx = (cos(angle) * speed).toFloat(),
                 vy = (sin(angle) * speed - 300f).toFloat(),
                 color = AppColors.StudioPalette.random(),
-                size = Random.nextFloat() * 9f + 5f
+                size = Random.nextFloat() * 8f + 4f
             )
         }
     }
 
     val anim = remember { Animatable(0f) }
-    LaunchedEffect(Unit) { anim.animateTo(1f, tween(2100, easing = LinearOutSlowInEasing)) }
+    LaunchedEffect(Unit) { anim.animateTo(1f, tween(2000, easing = LinearOutSlowInEasing)) }
 
     Box(
-        modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.78f)).clickable { onDismiss() },
+        modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.80f)).clickable { onDismiss() },
         contentAlignment = Alignment.Center
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -3476,10 +4062,10 @@ fun StudioFullScreenCelebrationOverlay(
             val cy = size.height * 0.42f
 
             drawCircle(
-                color = AppColors.MintGlow.copy(alpha = (1f - t).coerceIn(0f, 1f)),
+                color = Color(stage.primaryColorHex).copy(alpha = (1f - t).coerceIn(0f, 1f)),
                 radius = size.minDimension * 0.72f * t,
                 center = Offset(cx, cy),
-                style = Stroke(width = 5.dp.toPx())
+                style = Stroke(width = 4.dp.toPx())
             )
 
             particles.forEach { p ->
@@ -3494,22 +4080,26 @@ fun StudioFullScreenCelebrationOverlay(
         Surface(
             color = AppColors.BgCard,
             shape = RoundedCornerShape(30.dp),
-            border = BorderStroke(2.dp, AppColors.MintGlow),
+            border = BorderStroke(1.5.dp, Color(stage.primaryColorHex)),
             modifier = Modifier.padding(28.dp).fillMaxWidth()
         ) {
-            Column(modifier = Modifier.padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("🦸", fontSize = 56.sp)
-                Spacer(Modifier.height(8.dp))
-                Surface(color = AppColors.MintGlow.copy(alpha = 0.2f), shape = RoundedCornerShape(12.dp)) {
-                    Text("+$xpEarned XP  •  Lv.$level $rank", color = AppColors.MintGlow, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
+            Column(modifier = Modifier.padding(26.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                DarkKnight3DCanvas(
+                    stage = stage,
+                    animateStudioLight = false,
+                    modifier = Modifier.size(96.dp)
+                )
+                Spacer(Modifier.height(10.dp))
+                Surface(color = AppColors.MintGlow.copy(alpha = 0.18f), shape = RoundedCornerShape(10.dp)) {
+                    Text("+$xpEarned XP  •  Lv.$level $rank", color = AppColors.MintGlow, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
                 }
                 Spacer(Modifier.height(12.dp))
-                Text(title, color = AppColors.TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+                Text(title, color = AppColors.TextPrimary, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(6.dp))
-                Text(subtitle, color = AppColors.TextSecondary, fontSize = 14.sp)
+                Text(subtitle, color = AppColors.TextSecondary, fontSize = 13.sp, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(20.dp))
                 Button(onClick = onDismiss, colors = ButtonDefaults.buttonColors(containerColor = AppColors.MintGlow), shape = RoundedCornerShape(14.dp)) {
-                    Text("Keep Ascending", color = Color.Black, fontWeight = FontWeight.Bold)
+                    Text("Continue", color = Color.Black, fontWeight = FontWeight.Bold)
                 }
             }
         }
