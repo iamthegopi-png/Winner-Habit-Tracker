@@ -11,6 +11,14 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.LinearGradient
+import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.RadialGradient
+import android.graphics.RectF
+import android.graphics.Shader
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
@@ -56,6 +64,8 @@ import java.util.UUID
 import kotlin.math.PI
 import kotlin.math.exp
 import kotlin.math.sin
+import kotlin.random.Random
+import android.graphics.Color as AColor
 
 // ============================================================================
 // 1. TITANIUM OBSIDIAN COLOR SYSTEM (Apple / One UI Studio Aesthetics)
@@ -148,7 +158,589 @@ enum class SanctuaryReadingTheme(
 }
 
 // ============================================================================
-// 2. STEP-BY-STEP DARK KNIGHT SENTINEL EVOLUTION (NO SHORTCUTS — EARNED ONLY)
+// 2. REACTIVE BRAIN MOOD SYSTEM & PROCEDURAL STUDIO CHARACTER RENDERER
+// ============================================================================
+enum class BrainMoodState(
+    val label: String,
+    val badgeText: String
+) {
+    RADIANT_HAPPY("Peak Mind", "THRIVING"),
+    FOCUSED_GOOD("Locked In", "ON TRACK"),
+    TIRED_SLIPPING("Slipping", "HURRY UP"),
+    ROTTEN_SAD("Exhausted", "AT RISK")
+}
+
+enum class BrainWidgetColorPref(val label: String) {
+    AUTO_DYNAMIC("Auto (Blue → Purple → Green)"),
+    EMERALD_GREEN("Emerald Green"),
+    SAPPHIRE_BLUE("Sapphire Blue"),
+    COSMIC_PURPLE("Cosmic Purple")
+}
+
+@Immutable
+data class BrainMoodSnapshot(
+    val mood: BrainMoodState,
+    val completedCount: Int,
+    val totalCount: Int,
+    val habitsDone: Int,
+    val habitsTotal: Int,
+    val tasksDone: Int,
+    val tasksTotal: Int,
+    val ratioText: String,
+    val subtitleText: String,
+    val headlineText: String,
+    val breakdownText: String,
+    val bgStartHex: Long,
+    val bgEndHex: Long,
+    val borderHex: Long,
+    val drawableResId: Int
+)
+
+object BrainMoodCalculator {
+    fun evaluate(
+        habits: List<Habit>,
+        tasks: List<TodoTask>,
+        colorPref: BrainWidgetColorPref = BrainWidgetColorPref.AUTO_DYNAMIC,
+        nowTime: LocalTime = LocalTime.now(),
+        today: LocalDate = LocalDate.now()
+    ): BrainMoodSnapshot {
+        val habitsTotal = habits.size
+        val habitsDone = habits.count { it.isCompletedOn(today) }
+
+        val todayStr = today.toString()
+        val relevantTasks = tasks.filter { !it.isCompleted || it.isRecurring || it.lastCompletedDate == todayStr || it.date == todayStr }
+        val tasksTotal = relevantTasks.size
+        val tasksDone = relevantTasks.count { it.isCompleted }
+
+        val total = habitsTotal + tasksTotal
+        val completed = habitsDone + tasksDone
+        val remaining = (total - completed).coerceAtLeast(0)
+        val ratio = if (total == 0) 1f else completed.toFloat() / total.toFloat()
+        val hour = nowTime.hour
+
+        val mood = when {
+            total == 0 || ratio >= 0.85f -> BrainMoodState.RADIANT_HAPPY
+            hour >= 20 && ratio < 0.75f -> BrainMoodState.ROTTEN_SAD
+            hour >= 18 && ratio < 0.40f -> BrainMoodState.ROTTEN_SAD
+            ratio >= 0.50f -> BrainMoodState.FOCUSED_GOOD
+            hour < 14 && ratio >= 0.20f -> BrainMoodState.FOCUSED_GOOD
+            hour >= 15 && ratio < 0.50f -> BrainMoodState.TIRED_SLIPPING
+            else -> BrainMoodState.TIRED_SLIPPING
+        }
+
+        return buildSnapshot(
+            mood = mood,
+            completed = completed,
+            total = total,
+            remaining = remaining,
+            habitsDone = habitsDone,
+            habitsTotal = habitsTotal,
+            tasksDone = tasksDone,
+            tasksTotal = tasksTotal,
+            hour = hour,
+            colorPref = colorPref
+        )
+    }
+
+    /**
+     * Used by the in-app Widget Studio to preview any mood state on demand.
+     */
+    fun buildPreviewSnapshot(
+        mood: BrainMoodState,
+        colorPref: BrainWidgetColorPref
+    ): BrainMoodSnapshot {
+        return when (mood) {
+            BrainMoodState.RADIANT_HAPPY -> buildSnapshot(mood, 8, 8, 0, 4, 4, 4, 4, 19, colorPref)
+            BrainMoodState.FOCUSED_GOOD -> buildSnapshot(mood, 6, 8, 2, 3, 4, 3, 4, 14, colorPref)
+            BrainMoodState.TIRED_SLIPPING -> buildSnapshot(mood, 3, 8, 5, 2, 4, 1, 4, 17, colorPref)
+            BrainMoodState.ROTTEN_SAD -> buildSnapshot(mood, 1, 8, 7, 1, 4, 0, 4, 22, colorPref)
+        }
+    }
+
+    private fun buildSnapshot(
+        mood: BrainMoodState,
+        completed: Int,
+        total: Int,
+        remaining: Int,
+        habitsDone: Int,
+        habitsTotal: Int,
+        tasksDone: Int,
+        tasksTotal: Int,
+        hour: Int,
+        colorPref: BrainWidgetColorPref
+    ): BrainMoodSnapshot {
+        val ratio = if (total == 0) 1f else completed.toFloat() / total.toFloat()
+
+        val subtitle = when {
+            total == 0 -> "Add habits or missions"
+            remaining == 0 -> "All done today!"
+            mood == BrainMoodState.ROTTEN_SAD -> "$remaining missed today"
+            else -> "$remaining left today"
+        }
+
+        val headline = when (mood) {
+            BrainMoodState.RADIANT_HAPPY -> if (remaining == 0) "Peak mind\nunlocked" else "Crushing it\ntoday!"
+            BrainMoodState.FOCUSED_GOOD -> if (ratio >= 0.70f) "Almost\nthere!" else "Locked in\ntoday"
+            BrainMoodState.TIRED_SLIPPING -> if (hour < 12) "Start your\nfirst win" else "Finish\nstrong now"
+            BrainMoodState.ROTTEN_SAD -> if (hour >= 21 || ratio < 0.25f) "Try again\ntomorrow" else "Save your\nday now"
+        }
+
+        val (bgStart, bgEnd, border, drawableRes) = when (mood) {
+            BrainMoodState.ROTTEN_SAD -> Quad(
+                0xFF6B1120L, 0xFF881828L, 0xFFFDA4AFL, R.drawable.widget_brain_bg_crimson
+            )
+            BrainMoodState.TIRED_SLIPPING -> {
+                if (hour >= 16) {
+                    Quad(0xFF78350FL, 0xFF92400EL, 0xFFFCD34DL, R.drawable.widget_brain_bg_amber)
+                } else {
+                    Quad(0xFF4C1D95L, 0xFF6D28D9L, 0xFFD8B4FEL, R.drawable.widget_brain_bg_purple)
+                }
+            }
+            BrainMoodState.FOCUSED_GOOD -> when (colorPref) {
+                BrainWidgetColorPref.EMERALD_GREEN -> Quad(0xFF065F46L, 0xFF047857L, 0xFF6EE7B7L, R.drawable.widget_brain_bg_emerald)
+                BrainWidgetColorPref.COSMIC_PURPLE -> Quad(0xFF4C1D95L, 0xFF6D28D9L, 0xFFD8B4FEL, R.drawable.widget_brain_bg_purple)
+                BrainWidgetColorPref.SAPPHIRE_BLUE -> Quad(0xFF1E3A8AL, 0xFF1D4ED8L, 0xFF7DD3FCL, R.drawable.widget_brain_bg_blue)
+                BrainWidgetColorPref.AUTO_DYNAMIC -> {
+                    if (ratio >= 0.68f) Quad(0xFF4C1D95L, 0xFF6D28D9L, 0xFFD8B4FEL, R.drawable.widget_brain_bg_purple)
+                    else Quad(0xFF1E3A8AL, 0xFF1D4ED8L, 0xFF7DD3FCL, R.drawable.widget_brain_bg_blue)
+                }
+            }
+            BrainMoodState.RADIANT_HAPPY -> when (colorPref) {
+                BrainWidgetColorPref.SAPPHIRE_BLUE -> Quad(0xFF1E3A8AL, 0xFF1D4ED8L, 0xFF7DD3FCL, R.drawable.widget_brain_bg_blue)
+                BrainWidgetColorPref.COSMIC_PURPLE -> Quad(0xFF4C1D95L, 0xFF6D28D9L, 0xFFD8B4FEL, R.drawable.widget_brain_bg_purple)
+                BrainWidgetColorPref.EMERALD_GREEN, BrainWidgetColorPref.AUTO_DYNAMIC ->
+                    Quad(0xFF065F46L, 0xFF047857L, 0xFF6EE7B7L, R.drawable.widget_brain_bg_emerald)
+            }
+        }
+
+        return BrainMoodSnapshot(
+            mood = mood,
+            completedCount = completed,
+            totalCount = total,
+            habitsDone = habitsDone,
+            habitsTotal = habitsTotal,
+            tasksDone = tasksDone,
+            tasksTotal = tasksTotal,
+            ratioText = "$completed / $total",
+            subtitleText = subtitle,
+            headlineText = headline,
+            breakdownText = "${habitsDone}/${habitsTotal} Habits • ${tasksDone}/${tasksTotal} Tasks",
+            bgStartHex = bgStart,
+            bgEndHex = bgEnd,
+            borderHex = border,
+            drawableResId = drawableRes
+        )
+    }
+
+    private data class Quad(val a: Long, val b: Long, val c: Long, val d: Int)
+}
+
+/**
+ * STUDIO-GRADE ILLUSTRATED BRAIN CHARACTER RENDERER
+ * Renders a crisp, shaded, expressive Brain character directly to a lightweight Bitmap
+ * for both the Android Home Screen Widget and the in-app MindState preview.
+ */
+object BrainCharacterRenderer {
+
+    fun renderBrainBitmap(mood: BrainMoodState, sizePx: Int = 240): Bitmap {
+        val bmp = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        val w = sizePx.toFloat()
+        val h = sizePx.toFloat()
+        val cx = w * 0.50f
+        val cy = h * 0.50f
+
+        val p = Paint(Paint.ANTI_ALIAS_FLAG)
+
+        // Palette based on Brain health & mood
+        val (topHighlight, midTone, shadowTone, outlineColor, neckLight, neckDark) = when (mood) {
+            BrainMoodState.RADIANT_HAPPY -> Palette6(
+                0xFFFFC1D6.toInt(), 0xFFFF82A9.toInt(), 0xFFB83E67.toInt(), 0xFF4A1328.toInt(),
+                0xFFFFD3E1.toInt(), 0xFFC96889.toInt()
+            )
+            BrainMoodState.FOCUSED_GOOD -> Palette6(
+                0xFFFBCFE8.toInt(), 0xFFF472B6.toInt(), 0xFF9D3466.toInt(), 0xFF3E1428.toInt(),
+                0xFFF5C7DB.toInt(), 0xFFAD5D81.toInt()
+            )
+            BrainMoodState.TIRED_SLIPPING -> Palette6(
+                0xFFDFCFD4.toInt(), 0xFFB59DA6.toInt(), 0xFF6B565E.toInt(), 0xFF2D2126.toInt(),
+                0xFFD4C5C9.toInt(), 0xFF836E76.toInt()
+            )
+            BrainMoodState.ROTTEN_SAD -> Palette6(
+                0xFFDAD3C6.toInt(), 0xFFA59B8C.toInt(), 0xFF564D44.toInt(), 0xFF251F1B.toInt(),
+                0xFFC9C1B4.toInt(), 0xFF70675C.toInt()
+            )
+        }
+
+        // 1. Ambient Halo (Radiant Happy) or Dim Gloom (Rotten)
+        if (mood == BrainMoodState.RADIANT_HAPPY) {
+            p.style = Paint.Style.FILL
+            p.shader = RadialGradient(
+                cx, cy * 0.92f, w * 0.48f,
+                intArrayOf(0x66FDE047, 0x2234D399, 0x00000000),
+                floatArrayOf(0f, 0.58f, 1f),
+                Shader.TileMode.CLAMP
+            )
+            c.drawCircle(cx, cy * 0.92f, w * 0.48f, p)
+            p.shader = null
+        }
+
+        // 2. Stylized Character Neck & Shoulders (Matches reference silhouette)
+        val neckPath = Path().apply {
+            moveTo(cx - w * 0.14f, cy + h * 0.22f)
+            quadTo(cx - w * 0.15f, cy + h * 0.36f, cx - w * 0.24f, h * 0.99f)
+            lineTo(cx + w * 0.24f, h * 0.99f)
+            quadTo(cx + w * 0.15f, cy + h * 0.36f, cx + w * 0.14f, cy + h * 0.22f)
+            close()
+        }
+        p.style = Paint.Style.FILL
+        p.shader = LinearGradient(cx, cy + h * 0.20f, cx, h, neckDark, neckLight, Shader.TileMode.CLAMP)
+        c.drawPath(neckPath, p)
+        p.shader = null
+
+        p.style = Paint.Style.STROKE
+        p.strokeWidth = w * 0.022f
+        p.color = outlineColor
+        p.strokeJoin = Paint.Join.ROUND
+        c.drawPath(neckPath, p)
+
+        // 3. Organic Multi-Lobed Brain Cloud Silhouette (Left & Right Hemispheres)
+        val lobes = listOf(
+            Triple(cx - w * 0.17f, cy - h * 0.15f, w * 0.19f), // Top-left frontal
+            Triple(cx + w * 0.17f, cy - h * 0.15f, w * 0.19f), // Top-right frontal
+            Triple(cx - w * 0.29f, cy + h * 0.01f, w * 0.17f), // Far-left temporal
+            Triple(cx + w * 0.29f, cy + h * 0.01f, w * 0.17f), // Far-right temporal
+            Triple(cx - w * 0.21f, cy + h * 0.16f, w * 0.15f), // Lower-left lobe
+            Triple(cx + w * 0.21f, cy + h * 0.16f, w * 0.15f), // Lower-right lobe
+            Triple(cx, cy + h * 0.18f, w * 0.18f),             // Chin/lower cortex
+            Triple(cx, cy - h * 0.02f, w * 0.25f)              // Core center volume
+        )
+
+        // Outer silhouette stroke pass first (creates clean unified comic/studio outline)
+        p.style = Paint.Style.FILL
+        p.color = outlineColor
+        for ((lx, ly, lr) in lobes) {
+            c.drawCircle(lx, ly, lr + w * 0.024f, p)
+        }
+
+        // Main 3D-shaded brain volume fill
+        val bodyGrad = RadialGradient(
+            cx - w * 0.08f, cy - h * 0.20f, w * 0.56f,
+            intArrayOf(topHighlight, midTone, shadowTone),
+            floatArrayOf(0f, 0.55f, 1f),
+            Shader.TileMode.CLAMP
+        )
+        p.shader = bodyGrad
+        for ((lx, ly, lr) in lobes) {
+            c.drawCircle(lx, ly, lr, p)
+        }
+        p.shader = null
+
+        // Subtle inner rim highlight on upper lobes (Studio 3D lighting)
+        p.style = Paint.Style.STROKE
+        p.strokeWidth = w * 0.016f
+        p.color = if (mood == BrainMoodState.ROTTEN_SAD) 0x33FFFFFF else 0x55FFFFFF
+        c.drawArc(RectF(cx - w * 0.34f, cy - h * 0.32f, cx - w * 0.02f, cy - h * 0.04f), 195f, 100f, false, p)
+        c.drawArc(RectF(cx + w * 0.02f, cy - h * 0.32f, cx + w * 0.34f, cy - h * 0.04f), 245f, 100f, false, p)
+
+        // 4. Sculpted Cortical Folds & Center Hemisphere Split (Sulci)
+        p.style = Paint.Style.STROKE
+        p.strokeCap = Paint.Cap.ROUND
+        p.color = outlineColor
+        p.alpha = if (mood == BrainMoodState.ROTTEN_SAD) 165 else 115
+        p.strokeWidth = w * 0.016f
+
+        // Center top split
+        c.drawLine(cx, cy - h * 0.32f, cx, cy - h * 0.11f, p)
+
+        // Organic folds left & right
+        val foldPaths = listOf(
+            Path().apply {
+                moveTo(cx - w * 0.26f, cy - h * 0.21f)
+                quadTo(cx - w * 0.16f, cy - h * 0.14f, cx - w * 0.08f, cy - h * 0.22f)
+            },
+            Path().apply {
+                moveTo(cx + w * 0.26f, cy - h * 0.21f)
+                quadTo(cx + w * 0.16f, cy - h * 0.14f, cx + w * 0.08f, cy - h * 0.22f)
+            },
+            Path().apply {
+                moveTo(cx - w * 0.39f, cy - h * 0.04f)
+                quadTo(cx - w * 0.31f, cy - h * 0.01f, cx - w * 0.33f, cy + h * 0.09f)
+            },
+            Path().apply {
+                moveTo(cx + w * 0.39f, cy - h * 0.04f)
+                quadTo(cx + w * 0.31f, cy - h * 0.01f, cx + w * 0.33f, cy + h * 0.09f)
+            },
+            Path().apply {
+                moveTo(cx - w * 0.26f, cy + h * 0.22f)
+                quadTo(cx - w * 0.18f, cy + h * 0.19f, cx - w * 0.15f, cy + h * 0.26f)
+            },
+            Path().apply {
+                moveTo(cx + w * 0.26f, cy + h * 0.22f)
+                quadTo(cx + w * 0.18f, cy + h * 0.19f, cx + w * 0.15f, cy + h * 0.26f)
+            }
+        )
+        for (fp in foldPaths) c.drawPath(fp, p)
+
+        // Extra decay/wrinkle spots when Rotten
+        if (mood == BrainMoodState.ROTTEN_SAD) {
+            p.style = Paint.Style.FILL
+            p.color = 0x384A5236 // Subtle decayed olive-brown blotches
+            c.drawCircle(cx - w * 0.24f, cy - h * 0.19f, w * 0.045f, p)
+            c.drawCircle(cx + w * 0.27f, cy + h * 0.12f, w * 0.05f, p)
+            c.drawCircle(cx + w * 0.19f, cy - h * 0.23f, w * 0.032f, p)
+        }
+
+        // 5. Expressive Eyes, Eye Bags, Eyebrows & Mouth
+        val leftEyeX = cx - w * 0.145f
+        val rightEyeX = cx + w * 0.145f
+        val eyeY = cy + h * 0.02f
+
+        when (mood) {
+            BrainMoodState.RADIANT_HAPPY -> {
+                // Rosy happy blush
+                p.style = Paint.Style.FILL
+                p.color = 0x55FF3B7F
+                c.drawOval(RectF(leftEyeX - w * 0.11f, eyeY + h * 0.06f, leftEyeX + w * 0.02f, eyeY + h * 0.13f), p)
+                c.drawOval(RectF(rightEyeX - w * 0.02f, eyeY + h * 0.06f, rightEyeX + w * 0.11f, eyeY + h * 0.13f), p)
+
+                // Big joyful sparkling eyes
+                drawGlossyEye(c, p, leftEyeX, eyeY, w * 0.072f, outlineColor, isSparkling = true)
+                drawGlossyEye(c, p, rightEyeX, eyeY, w * 0.072f, outlineColor, isSparkling = true)
+
+                // Big beaming smile
+                val smilePath = Path().apply {
+                    moveTo(cx - w * 0.11f, cy + h * 0.14f)
+                    quadTo(cx, cy + h * 0.27f, cx + w * 0.11f, cy + h * 0.14f)
+                    close()
+                }
+                p.style = Paint.Style.FILL
+                p.color = 0xFF6B1435.toInt()
+                c.drawPath(smilePath, p)
+                // Tiny bright tongue highlight
+                p.color = 0xFFFF7AA2.toInt()
+                c.drawOval(RectF(cx - w * 0.05f, cy + h * 0.18f, cx + w * 0.05f, cy + h * 0.225f), p)
+                p.style = Paint.Style.STROKE
+                p.color = outlineColor
+                p.strokeWidth = w * 0.018f
+                c.drawPath(smilePath, p)
+
+                // Floating Golden Sparkle Stars
+                drawFourPointStar(c, p, cx - w * 0.36f, cy - h * 0.28f, w * 0.058f, 0xFFFDE047.toInt())
+                drawFourPointStar(c, p, cx + w * 0.37f, cy - h * 0.25f, w * 0.048f, 0xFFFFFFFF.toInt())
+                drawFourPointStar(c, p, cx + w * 0.39f, cy + h * 0.22f, w * 0.038f, 0xFF6EE7B7.toInt())
+            }
+
+            BrainMoodState.FOCUSED_GOOD -> {
+                // Soft warm blush
+                p.style = Paint.Style.FILL
+                p.color = 0x3DFF4D8D
+                c.drawOval(RectF(leftEyeX - w * 0.10f, eyeY + h * 0.06f, leftEyeX + w * 0.01f, eyeY + h * 0.115f), p)
+                c.drawOval(RectF(rightEyeX - w * 0.01f, eyeY + h * 0.06f, rightEyeX + w * 0.10f, eyeY + h * 0.115f), p)
+
+                // Bright alert eyes
+                drawGlossyEye(c, p, leftEyeX, eyeY, w * 0.066f, outlineColor, isSparkling = false)
+                drawGlossyEye(c, p, rightEyeX, eyeY, w * 0.066f, outlineColor, isSparkling = false)
+
+                // Confident happy eyebrows
+                p.style = Paint.Style.STROKE
+                p.color = outlineColor
+                p.strokeWidth = w * 0.020f
+                p.strokeCap = Paint.Cap.ROUND
+                c.drawArc(RectF(leftEyeX - w * 0.07f, eyeY - h * 0.12f, leftEyeX + w * 0.07f, eyeY - h * 0.05f), 200f, 140f, false, p)
+                c.drawArc(RectF(rightEyeX - w * 0.07f, eyeY - h * 0.12f, rightEyeX + w * 0.07f, eyeY - h * 0.05f), 200f, 140f, false, p)
+
+                // Confident warm smile
+                val smile = Path().apply {
+                    moveTo(cx - w * 0.095f, cy + h * 0.155f)
+                    quadTo(cx, cy + h * 0.235f, cx + w * 0.095f, cy + h * 0.155f)
+                }
+                p.strokeWidth = w * 0.022f
+                c.drawPath(smile, p)
+            }
+
+            BrainMoodState.TIRED_SLIPPING -> {
+                // Light eye shadows
+                p.style = Paint.Style.FILL
+                p.color = 0x444A2C3B
+                c.drawOval(RectF(leftEyeX - w * 0.09f, eyeY + h * 0.02f, leftEyeX + w * 0.09f, eyeY + h * 0.10f), p)
+                c.drawOval(RectF(rightEyeX - w * 0.09f, eyeY + h * 0.02f, rightEyeX + w * 0.09f, eyeY + h * 0.10f), p)
+
+                // Half-lidded eyes
+                drawTiredEye(c, p, leftEyeX, eyeY, w * 0.078f, h * 0.048f, midTone, outlineColor, heavyDroop = false)
+                drawTiredEye(c, p, rightEyeX, eyeY, w * 0.078f, h * 0.048f, midTone, outlineColor, heavyDroop = false)
+
+                // Worried eyebrows
+                p.style = Paint.Style.STROKE
+                p.color = outlineColor
+                p.strokeWidth = w * 0.020f
+                c.drawLine(leftEyeX - w * 0.08f, eyeY - h * 0.06f, leftEyeX + w * 0.06f, eyeY - h * 0.095f, p)
+                c.drawLine(rightEyeX - w * 0.06f, eyeY - h * 0.095f, rightEyeX + w * 0.08f, eyeY - h * 0.06f, p)
+
+                // Uneasy wavy mouth
+                val mouth = Path().apply {
+                    moveTo(cx - w * 0.085f, cy + h * 0.18f)
+                    quadTo(cx - w * 0.03f, cy + h * 0.155f, cx, cy + h * 0.18f)
+                    quadTo(cx + w * 0.03f, cy + h * 0.20f, cx + w * 0.085f, cy + h * 0.175f)
+                }
+                p.strokeWidth = w * 0.020f
+                c.drawPath(mouth, p)
+
+                // Glossy sweat drop on right temple
+                val dropPath = Path().apply {
+                    moveTo(cx + w * 0.30f, cy - h * 0.19f)
+                    quadTo(cx + w * 0.355f, cy - h * 0.11f, cx + w * 0.30f, cy - h * 0.08f)
+                    quadTo(cx + w * 0.245f, cy - h * 0.11f, cx + w * 0.30f, cy - h * 0.19f)
+                    close()
+                }
+                p.style = Paint.Style.FILL
+                p.color = 0xFF38BDF8.toInt()
+                c.drawPath(dropPath, p)
+                p.style = Paint.Style.STROKE
+                p.color = outlineColor
+                p.strokeWidth = w * 0.012f
+                c.drawPath(dropPath, p)
+            }
+
+            BrainMoodState.ROTTEN_SAD -> {
+                // Deep dark exhausted under-eye bags (Signature expressive look from sample!)
+                p.style = Paint.Style.FILL
+                p.color = 0x8C52313B.toInt()
+                c.drawOval(RectF(leftEyeX - w * 0.115f, eyeY + h * 0.01f, leftEyeX + w * 0.105f, eyeY + h * 0.135f), p)
+                c.drawOval(RectF(rightEyeX - w * 0.105f, eyeY + h * 0.01f, rightEyeX + w * 0.115f, eyeY + h * 0.135f), p)
+
+                // Double crease bag lines under eyes
+                p.style = Paint.Style.STROKE
+                p.color = outlineColor
+                p.alpha = 175
+                p.strokeWidth = w * 0.013f
+                c.drawArc(RectF(leftEyeX - w * 0.10f, eyeY + h * 0.02f, leftEyeX + w * 0.09f, eyeY + h * 0.115f), 15f, 150f, false, p)
+                c.drawArc(RectF(rightEyeX - w * 0.09f, eyeY + h * 0.02f, rightEyeX + w * 0.10f, eyeY + h * 0.115f), 15f, 150f, false, p)
+
+                // Heavy hooded droopy eyes
+                drawTiredEye(c, p, leftEyeX, eyeY + h * 0.015f, w * 0.095f, h * 0.055f, midTone, outlineColor, heavyDroop = true)
+                drawTiredEye(c, p, rightEyeX, eyeY + h * 0.015f, w * 0.095f, h * 0.055f, midTone, outlineColor, heavyDroop = true)
+
+                // Heavy downturned sad frown
+                p.style = Paint.Style.STROKE
+                p.color = outlineColor
+                p.alpha = 255
+                p.strokeWidth = w * 0.024f
+                p.strokeCap = Paint.Cap.ROUND
+                val frown = Path().apply {
+                    moveTo(cx - w * 0.11f, cy + h * 0.215f)
+                    quadTo(cx, cy + h * 0.135f, cx + w * 0.11f, cy + h * 0.215f)
+                }
+                c.drawPath(frown, p)
+
+                // Chin crease under frown
+                p.strokeWidth = w * 0.013f
+                p.alpha = 140
+                c.drawArc(RectF(cx - w * 0.055f, cy + h * 0.205f, cx + w * 0.055f, cy + h * 0.245f), 205f, 130f, false, p)
+            }
+        }
+
+        return bmp
+    }
+
+    private fun drawGlossyEye(
+        c: Canvas,
+        p: Paint,
+        x: Float,
+        y: Float,
+        r: Float,
+        outlineColor: Int,
+        isSparkling: Boolean
+    ) {
+        p.style = Paint.Style.FILL
+        p.color = AColor.WHITE
+        c.drawCircle(x, y, r, p)
+
+        p.color = 0xFF1A1025.toInt()
+        c.drawCircle(x, y, r * 0.72f, p)
+
+        // Bright studio catchlights
+        p.color = AColor.WHITE
+        c.drawCircle(x - r * 0.25f, y - r * 0.28f, r * 0.28f, p)
+        if (isSparkling) {
+            c.drawCircle(x + r * 0.22f, y + r * 0.20f, r * 0.14f, p)
+        }
+
+        p.style = Paint.Style.STROKE
+        p.color = outlineColor
+        p.strokeWidth = r * 0.22f
+        c.drawCircle(x, y, r, p)
+    }
+
+    private fun drawTiredEye(
+        c: Canvas,
+        p: Paint,
+        x: Float,
+        y: Float,
+        rx: Float,
+        ry: Float,
+        lidColor: Int,
+        outlineColor: Int,
+        heavyDroop: Boolean
+    ) {
+        val eyeRect = RectF(x - rx, y - ry, x + rx, y + ry)
+        // Off-white weary sclera
+        p.style = Paint.Style.FILL
+        p.color = if (heavyDroop) 0xFFE8DED6.toInt() else 0xFFF8F4F6.toInt()
+        c.drawOval(eyeRect, p)
+
+        // Half-hidden pupil
+        p.color = 0xFF1F1619.toInt()
+        c.drawCircle(x, y + ry * 0.12f, ry * 0.52f, p)
+
+        // Tiny dull catchlight
+        p.color = 0xBBFFFFFF.toInt()
+        c.drawCircle(x - ry * 0.18f, y, ry * 0.16f, p)
+
+        // Heavy upper eyelid covering top half
+        val lidCutY = if (heavyDroop) y + ry * 0.10f else y - ry * 0.12f
+        val lidPath = Path().apply {
+            addArc(eyeRect, 180f, 180f)
+            lineTo(x + rx, lidCutY)
+            quadTo(x, lidCutY + ry * (if (heavyDroop) 0.28f else 0.10f), x - rx, lidCutY)
+            close()
+        }
+        p.color = lidColor
+        c.drawPath(lidPath, p)
+
+        // Crisp eyelid & eye contour lines
+        p.style = Paint.Style.STROKE
+        p.color = outlineColor
+        p.strokeWidth = rx * 0.18f
+        c.drawOval(eyeRect, p)
+        val lidLine = Path().apply {
+            moveTo(x - rx * 1.05f, lidCutY)
+            quadTo(x, lidCutY + ry * (if (heavyDroop) 0.28f else 0.10f), x + rx * 1.05f, lidCutY)
+        }
+        c.drawPath(lidLine, p)
+    }
+
+    private fun drawFourPointStar(c: Canvas, p: Paint, cx: Float, cy: Float, r: Float, color: Int) {
+        val star = Path().apply {
+            moveTo(cx, cy - r)
+            quadTo(cx, cy, cx + r, cy)
+            quadTo(cx, cy, cx, cy + r)
+            quadTo(cx, cy, cx - r, cy)
+            quadTo(cx, cy, cx, cy - r)
+            close()
+        }
+        p.style = Paint.Style.FILL
+        p.color = color
+        c.drawPath(star, p)
+    }
+
+    private data class Palette6(
+        val top: Int, val mid: Int, val shadow: Int, val outline: Int, val neckLight: Int, val neckDark: Int
+    )
+}
+
+// ============================================================================
+// 3. STEP-BY-STEP DARK KNIGHT SENTINEL EVOLUTION (NO SHORTCUTS — EARNED ONLY)
 // ============================================================================
 enum class CharacterStage(
     val stageNumber: Int,
@@ -163,76 +755,28 @@ enum class CharacterStage(
     val capeColorHex: Long
 ) {
     STAGE_1_SCOUT(
-        stageNumber = 1,
-        title = "Obsidian Scout",
-        formName = "Mk-I Initiate",
-        suitName = "Matte Carbon Kevlar",
-        minXpRequired = 0,
-        minStreakRequired = 0,
-        armorUpgradeDetail = "Tactical Cowl & Matte Chest Plate",
-        primaryColorHex = 0xFF38BDF8,
-        secondaryColorHex = 0xFF94A3B8,
-        capeColorHex = 0xFF0F172A
+        1, "Obsidian Scout", "Mk-I Initiate", "Matte Carbon Kevlar", 0, 0,
+        "Tactical Cowl & Matte Chest Plate", 0xFF38BDF8, 0xFF94A3B8, 0xFF0F172A
     ),
     STAGE_2_SENTINEL(
-        stageNumber = 2,
-        title = "Night Sentinel",
-        formName = "Mk-II Tactical",
-        suitName = "Reinforced Titanium Weave",
-        minXpRequired = 400,
-        minStreakRequired = 3,
-        armorUpgradeDetail = "Layered Pauldrons & Illuminated Visor",
-        primaryColorHex = 0xFF34D399,
-        secondaryColorHex = 0xFF38BDF8,
-        capeColorHex = 0xFF0B1F1D
+        2, "Night Sentinel", "Mk-II Tactical", "Reinforced Titanium Weave", 400, 3,
+        "Layered Pauldrons & Illuminated Visor", 0xFF34D399, 0xFF38BDF8, 0xFF0B1F1D
     ),
     STAGE_3_WARDEN(
-        stageNumber = 3,
-        title = "Shadow Warden",
-        formName = "Mk-III Armored",
-        suitName = "Sculpted Stealth Alloy",
-        minXpRequired = 900,
-        minStreakRequired = 7,
-        armorUpgradeDetail = "High-Collar Mantle & Kinetic Chest Core",
-        primaryColorHex = 0xFF6366F1,
-        secondaryColorHex = 0xFF38BDF8,
-        capeColorHex = 0xFF17142E
+        3, "Shadow Warden", "Mk-III Armored", "Sculpted Stealth Alloy", 900, 7,
+        "High-Collar Mantle & Kinetic Chest Core", 0xFF6366F1, 0xFF38BDF8, 0xFF17142E
     ),
     STAGE_4_KNIGHT(
-        stageNumber = 4,
-        title = "Eclipse Knight",
-        formName = "Mk-IV Vanguard",
-        suitName = "Ballistic Graphite Exo-Suit",
-        minXpRequired = 1500,
-        minStreakRequired = 14,
-        armorUpgradeDetail = "Winged Glide Cloak & Gauntlet Blades",
-        primaryColorHex = 0xFFA855F7,
-        secondaryColorHex = 0xFFF43F5E,
-        capeColorHex = 0xFF210E2E
+        4, "Eclipse Knight", "Mk-IV Vanguard", "Ballistic Graphite Exo-Suit", 1500, 14,
+        "Winged Glide Cloak & Gauntlet Blades", 0xFFA855F7, 0xFFF43F5E, 0xFF210E2E
     ),
     STAGE_5_NOCTURNE(
-        stageNumber = 5,
-        title = "Nocturne Apex",
-        formName = "Mk-V Sovereign",
-        suitName = "Gilded Obsidian Battle Armor",
-        minXpRequired = 2400,
-        minStreakRequired = 21,
-        armorUpgradeDetail = "Gold-Trimmed Armor Plates & Energy Crest",
-        primaryColorHex = 0xFFF43F5E,
-        secondaryColorHex = 0xFFFBBF24,
-        capeColorHex = 0xFF2A0A14
+        5, "Nocturne Apex", "Mk-V Sovereign", "Gilded Obsidian Battle Armor", 2400, 21,
+        "Gold-Trimmed Armor Plates & Energy Crest", 0xFFF43F5E, 0xFFFBBF24, 0xFF2A0A14
     ),
     STAGE_6_AETHER(
-        stageNumber = 6,
-        title = "Aether Sovereign",
-        formName = "Mk-VI Ascended",
-        suitName = "Celestial Carbon Prime",
-        minXpRequired = 3600,
-        minStreakRequired = 30,
-        armorUpgradeDetail = "Full 3D Radiant Mantle & Sovereign Halo",
-        primaryColorHex = 0xFFFBBF24,
-        secondaryColorHex = 0xFF34D399,
-        capeColorHex = 0xFF1F1606
+        6, "Aether Sovereign", "Mk-VI Ascended", "Celestial Carbon Prime", 3600, 30,
+        "Full 3D Radiant Mantle & Sovereign Halo", 0xFFFBBF24, 0xFF34D399, 0xFF1F1606
     )
 }
 
@@ -279,7 +823,7 @@ data class NotificationHealthStatus(
 }
 
 // ============================================================================
-// 3. NEW GOAL ACHIEVEMENT & DAILY WORK PROGRESS MODELS
+// 4. GOAL ACHIEVEMENT, HOURLY AUDIT, HABIT, TASK, JOURNAL & VAULT MODELS
 // ============================================================================
 @Immutable
 data class GoalWorkLog(
@@ -306,23 +850,12 @@ data class GoalItem(
     val createdAt: String = LocalDate.now().toString()
 ) {
     val accentColor: Color get() = Color(colorHex)
+    val progressFraction: Float get() = if (targetValue <= 0f) 0f else (currentValue / targetValue).coerceIn(0f, 1f)
+    val progressPercent: Int get() = (progressFraction * 100f).toInt()
+    val isCompleted: Boolean get() = currentValue >= targetValue && targetValue > 0f
 
-    val progressFraction: Float
-        get() = if (targetValue <= 0f) 0f else (currentValue / targetValue).coerceIn(0f, 1f)
-
-    val progressPercent: Int
-        get() = (progressFraction * 100f).toInt()
-
-    val isCompleted: Boolean
-        get() = currentValue >= targetValue && targetValue > 0f
-
-    fun daysRemaining(today: LocalDate = LocalDate.now()): Long {
-        return try {
-            ChronoUnit.DAYS.between(today, LocalDate.parse(deadlineIso))
-        } catch (_: Exception) {
-            0L
-        }
-    }
+    fun daysRemaining(today: LocalDate = LocalDate.now()): Long =
+        runCatching { ChronoUnit.DAYS.between(today, LocalDate.parse(deadlineIso)) }.getOrDefault(0L)
 
     fun requiredDailyPace(today: LocalDate = LocalDate.now()): Float {
         val remainingWork = (targetValue - currentValue).coerceAtLeast(0f)
@@ -330,17 +863,10 @@ data class GoalItem(
         return remainingWork / daysLeft.toFloat()
     }
 
-    fun workedToday(today: LocalDate = LocalDate.now()): Boolean {
-        val key = today.toString()
-        return dailyLogs.any { it.date == key }
-    }
-
+    fun workedToday(today: LocalDate = LocalDate.now()): Boolean = dailyLogs.any { it.date == today.toString() }
     fun totalMinutesInvested(): Int = dailyLogs.sumOf { it.minutesSpent }
 }
 
-// ============================================================================
-// 4. HOURLY PRODUCTIVITY LEDGER MODELS
-// ============================================================================
 enum class HourProductivityStatus(
     val label: String,
     val shortBadge: String,
@@ -373,9 +899,6 @@ data class HourlyLogItem(
     }
 }
 
-// ============================================================================
-// 5. HABIT, AUTO-RENEW TASK, JOURNAL & VAULT MODELS
-// ============================================================================
 enum class HabitType(val label: String) {
     CHECKLIST("Checklist"),
     MEASUREMENT("Measurement"),
@@ -416,20 +939,16 @@ data class Habit(
     val createdAt: String = LocalDate.now().toString()
 ) {
     val accentColor: Color get() = Color(colorHex)
-
     fun valueOn(date: LocalDate): Float = logs[date.toString()] ?: 0f
-
     fun isCompletedOn(date: LocalDate): Boolean {
         val v = valueOn(date)
         return if (type == HabitType.QUIT_SHIELD) v > 0f else v >= targetValue
     }
-
     fun progressOn(date: LocalDate): Float {
         if (type == HabitType.QUIT_SHIELD) return if (valueOn(date) > 0f) 1f else 0f
         if (targetValue <= 0f) return 0f
         return (valueOn(date) / targetValue).coerceIn(0f, 1f)
     }
-
     fun currentStreak(today: LocalDate = LocalDate.now()): Int {
         var streak = 0
         var cursor = if (isCompletedOn(today)) today else today.minusDays(1)
@@ -439,7 +958,6 @@ data class Habit(
         }
         return streak
     }
-
     fun bestStreak(today: LocalDate = LocalDate.now()): Int {
         var best = 0
         var current = 0
@@ -447,18 +965,13 @@ data class Habit(
             if (isCompletedOn(today.minusDays(i.toLong()))) {
                 current++
                 if (current > best) best = current
-            } else {
-                current = 0
-            }
+            } else current = 0
         }
         return best
     }
-
     fun completionRate30Days(today: LocalDate = LocalDate.now()): Int {
         var completed = 0
-        for (i in 0 until 30) {
-            if (isCompletedOn(today.minusDays(i.toLong()))) completed++
-        }
+        for (i in 0 until 30) if (isCompletedOn(today.minusDays(i.toLong()))) completed++
         return ((completed / 30f) * 100f).toInt()
     }
 }
@@ -521,10 +1034,7 @@ enum class NoteCategory(val label: String) {
 }
 
 @Immutable
-data class FlashcardItem(
-    val question: String,
-    val answer: String
-)
+data class FlashcardItem(val question: String, val answer: String)
 
 @Immutable
 data class NotebookEntry(
@@ -544,12 +1054,94 @@ data class NotebookEntry(
 )
 
 // ============================================================================
-// 6. LOW-BATTERY SOUND ENGINE (Custom Phone Audio + Crisp Synth Fallback)
+// 5. LOW-BATTERY SOUND & SOOTHING AMBIENT SOUNDSCAPE ENGINE
 // ============================================================================
+enum class AmbientSoundMode(val label: String, val icon: String) {
+    OFF("Silent", "🔇"),
+    SOFT_RAIN("Soft Rain", "🌧️"),
+    CALM_DRONE("432Hz Calm", "🌊")
+}
+
 object CelebrationSoundEngine {
 
     private var activeMediaPlayer: MediaPlayer? = null
+    private var ambientTrack: AudioTrack? = null
     private val mainHandler = Handler(Looper.getMainLooper())
+
+    fun startAmbientSound(mode: AmbientSoundMode) {
+        stopAmbientSound()
+        if (mode == AmbientSoundMode.OFF) return
+
+        Thread {
+            try {
+                val sampleRate = 16000
+                val seconds = 3
+                val numSamples = sampleRate * seconds
+                val buffer = ShortArray(numSamples)
+
+                if (mode == AmbientSoundMode.SOFT_RAIN) {
+                    // Filtered gentle pink-ish rain noise (soothing & seamless loop)
+                    var b0 = 0.0
+                    var b1 = 0.0
+                    var b2 = 0.0
+                    val rng = Random(42)
+                    for (i in 0 until numSamples) {
+                        val white = rng.nextDouble(-1.0, 1.0)
+                        b0 = 0.997 * b0 + white * 0.029
+                        b1 = 0.985 * b1 + white * 0.032
+                        b2 = 0.950 * b2 + white * 0.048
+                        val raw = (b0 + b1 + b2 + white * 0.015) * 0.30
+                        buffer[i] = (raw.coerceIn(-0.6, 0.6) * Short.MAX_VALUE).toInt().toShort()
+                    }
+                } else {
+                    // Warm 216Hz / 432Hz harmonic meditation drone
+                    for (i in 0 until numSamples) {
+                        val t = i.toDouble() / sampleRate
+                        val wave = 0.14 * sin(2.0 * PI * 216.0 * t) +
+                                0.08 * sin(2.0 * PI * 324.0 * t) +
+                                0.05 * sin(2.0 * PI * 432.0 * t)
+                        buffer[i] = (wave.coerceIn(-0.6, 0.6) * Short.MAX_VALUE).toInt().toShort()
+                    }
+                }
+
+                val track = AudioTrack.Builder()
+                    .setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .build()
+                    )
+                    .setAudioFormat(
+                        AudioFormat.Builder()
+                            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                            .setSampleRate(sampleRate)
+                            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                            .build()
+                    )
+                    .setBufferSizeInBytes(buffer.size * 2)
+                    .setTransferMode(AudioTrack.MODE_STATIC)
+                    .build()
+
+                track.write(buffer, 0, buffer.size)
+                track.setLoopPoints(0, numSamples, -1)
+                track.play()
+                ambientTrack = track
+            } catch (_: Exception) {
+            }
+        }.start()
+    }
+
+    fun stopAmbientSound() {
+        try {
+            ambientTrack?.let {
+                if (it.playState == AudioTrack.PLAYSTATE_PLAYING) it.stop()
+                it.release()
+            }
+        } catch (_: Exception) {
+        } finally {
+            ambientTrack = null
+        }
+    }
 
     fun getAudioFileName(context: Context, uriString: String): String {
         if (uriString.isBlank()) return "Default Studio Sound"
@@ -558,9 +1150,7 @@ object CelebrationSoundEngine {
             var name = "Custom Audio"
             context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
                 val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                if (nameIndex != -1 && cursor.moveToFirst()) {
-                    name = cursor.getString(nameIndex) ?: "Custom Audio"
-                }
+                if (nameIndex != -1 && cursor.moveToFirst()) name = cursor.getString(nameIndex) ?: "Custom Audio"
             }
             name
         } catch (_: Exception) {
@@ -590,10 +1180,7 @@ object CelebrationSoundEngine {
                     prepare()
                     start()
                     setOnCompletionListener { player ->
-                        try {
-                            player.release()
-                        } catch (_: Exception) {
-                        }
+                        try { player.release() } catch (_: Exception) {}
                     }
                 }
                 activeMediaPlayer = mp
@@ -601,19 +1188,15 @@ object CelebrationSoundEngine {
                     try {
                         if (mp.isPlaying) mp.stop()
                         mp.release()
-                    } catch (_: Exception) {
-                    }
+                    } catch (_: Exception) {}
                 }, 10_000L)
                 return
             } catch (_: Exception) {
             }
         }
 
-        if (isReminder) {
-            playMotivationalReminderSound(context)
-        } else {
-            playCelebrationFanfare(context, isLevelUp = isLevelUp)
-        }
+        if (isReminder) playMotivationalReminderSound(context)
+        else playCelebrationFanfare(context, isLevelUp = isLevelUp)
     }
 
     fun stopActiveCustomSound() {
@@ -632,18 +1215,13 @@ object CelebrationSoundEngine {
         triggerHaptics(context, isLevelUp)
         val notes = if (isLevelUp) {
             listOf(
-                Triple(523.25, 0.00, 0.36),
-                Triple(659.25, 0.07, 0.36),
-                Triple(783.99, 0.14, 0.42),
-                Triple(1046.50, 0.21, 0.60),
-                Triple(1318.51, 0.30, 0.70)
+                Triple(523.25, 0.00, 0.36), Triple(659.25, 0.07, 0.36),
+                Triple(783.99, 0.14, 0.42), Triple(1046.50, 0.21, 0.60), Triple(1318.51, 0.30, 0.70)
             )
         } else {
             listOf(
-                Triple(587.33, 0.00, 0.30),
-                Triple(739.99, 0.07, 0.35),
-                Triple(880.00, 0.14, 0.40),
-                Triple(1174.66, 0.21, 0.65)
+                Triple(587.33, 0.00, 0.30), Triple(739.99, 0.07, 0.35),
+                Triple(880.00, 0.14, 0.40), Triple(1174.66, 0.21, 0.65)
             )
         }
         playSynthesizedSequence(notes, durationSeconds = if (isLevelUp) 1.15 else 0.90)
@@ -651,37 +1229,28 @@ object CelebrationSoundEngine {
 
     fun playMotivationalReminderSound(context: Context) {
         triggerHaptics(context, isLevelUp = true)
-        val motivationalChord = listOf(
-            Triple(440.00, 0.00, 0.48),
-            Triple(554.37, 0.11, 0.48),
-            Triple(659.25, 0.22, 0.52),
-            Triple(880.00, 0.33, 0.80),
-            Triple(1108.73, 0.46, 0.85)
+        val chord = listOf(
+            Triple(440.00, 0.00, 0.48), Triple(554.37, 0.11, 0.48),
+            Triple(659.25, 0.22, 0.52), Triple(880.00, 0.33, 0.80), Triple(1108.73, 0.46, 0.85)
         )
-        playSynthesizedSequence(motivationalChord, durationSeconds = 1.35)
+        playSynthesizedSequence(chord, durationSeconds = 1.35)
     }
 
     fun playPenaltyDrainSound(context: Context) {
         triggerHaptics(context, isLevelUp = false)
-        val drainNotes = listOf(
-            Triple(392.00, 0.00, 0.30),
-            Triple(349.23, 0.12, 0.30),
-            Triple(293.66, 0.24, 0.45)
+        val drain = listOf(
+            Triple(392.00, 0.00, 0.30), Triple(349.23, 0.12, 0.30), Triple(293.66, 0.24, 0.45)
         )
-        playSynthesizedSequence(drainNotes, durationSeconds = 0.75)
+        playSynthesizedSequence(drain, durationSeconds = 0.75)
     }
 
-    private fun playSynthesizedSequence(
-        notes: List<Triple<Double, Double, Double>>,
-        durationSeconds: Double
-    ) {
+    private fun playSynthesizedSequence(notes: List<Triple<Double, Double, Double>>, durationSeconds: Double) {
         Thread {
             var track: AudioTrack? = null
             try {
                 val sampleRate = 22050
                 val numSamples = (sampleRate * durationSeconds).toInt()
                 val buffer = ShortArray(numSamples)
-
                 for (i in 0 until numSamples) {
                     val t = i.toDouble() / sampleRate
                     var sample = 0.0
@@ -690,42 +1259,24 @@ object CelebrationSoundEngine {
                             val localT = t - start
                             val attack = (localT / 0.015).coerceAtMost(1.0)
                             val decay = exp(-3.6 * localT)
-                            val wave = sin(2.0 * PI * freq * localT) +
-                                    0.30 * sin(2.0 * PI * freq * 2.0 * localT)
+                            val wave = sin(2.0 * PI * freq * localT) + 0.30 * sin(2.0 * PI * freq * 2.0 * localT)
                             sample += wave * attack * decay * 0.26
                         }
                     }
                     buffer[i] = (sample.coerceIn(-0.95, 0.95) * Short.MAX_VALUE).toInt().toShort()
                 }
-
                 track = AudioTrack.Builder()
-                    .setAudioAttributes(
-                        AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_NOTIFICATION)
-                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                            .build()
-                    )
-                    .setAudioFormat(
-                        AudioFormat.Builder()
-                            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                            .setSampleRate(sampleRate)
-                            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-                            .build()
-                    )
+                    .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
+                    .setAudioFormat(AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_16BIT).setSampleRate(sampleRate).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
                     .setBufferSizeInBytes(buffer.size * 2)
                     .setTransferMode(AudioTrack.MODE_STATIC)
                     .build()
-
                 track.write(buffer, 0, buffer.size)
                 track.play()
                 Thread.sleep((durationSeconds * 1000).toLong() + 80)
             } catch (_: Exception) {
             } finally {
-                try {
-                    track?.stop()
-                    track?.release()
-                } catch (_: Exception) {
-                }
+                try { track?.stop(); track?.release() } catch (_: Exception) {}
             }
         }.start()
     }
@@ -747,11 +1298,11 @@ object CelebrationSoundEngine {
 }
 
 // ============================================================================
-// 7. DOZE-PROOF ALARM SCHEDULER, RECEIVER & BOOT AUTO-RECOVERY
+// 6. DOZE-PROOF ALARM SCHEDULER, RECEIVER & BOOT AUTO-RECOVERY
 // ============================================================================
 object ReminderScheduler {
     private val motivationalQuotes = listOf(
-        "Discipline compounds quietly—show up and execute right now.",
+        "Keep your mind sharp—finish today's habits before nightfall.",
         "Every completed rep strengthens your armor. No shortcuts, pure focus.",
         "Your goals depend on today's work block. Start with 2 focused minutes.",
         "Guard the hour. Consistency turns ambition into reality."
@@ -776,9 +1327,7 @@ object ReminderScheduler {
             val minute = parts[1].trim().toInt().coerceIn(0, 59)
 
             var targetDateTime = LocalDateTime.of(LocalDate.now(), LocalTime.of(hour, minute))
-            if (!targetDateTime.isAfter(LocalDateTime.now())) {
-                targetDateTime = targetDateTime.plusDays(1)
-            }
+            if (!targetDateTime.isAfter(LocalDateTime.now())) targetDateTime = targetDateTime.plusDays(1)
             val triggerMillis = targetDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
             scheduleExactMillis(context, itemId, title, timeStr, isHabit, isRecurring, customSoundUri, triggerMillis)
@@ -788,16 +1337,7 @@ object ReminderScheduler {
 
     fun scheduleTestNotificationInSeconds(context: Context, seconds: Int = 5) {
         val triggerMillis = System.currentTimeMillis() + (seconds * 1000L)
-        scheduleExactMillis(
-            context = context,
-            itemId = "alpha_test_alarm",
-            title = "Notification Shield Verified!",
-            timeStr = "",
-            isHabit = true,
-            isRecurring = false,
-            customSoundUri = "",
-            triggerMillis = triggerMillis
-        )
+        scheduleExactMillis(context, "alpha_test_alarm", "Notification Shield Verified!", "", true, false, "", triggerMillis)
     }
 
     private fun scheduleExactMillis(
@@ -819,28 +1359,15 @@ object ReminderScheduler {
             putExtra("EXTRA_SOUND_URI", customSoundUri)
             putExtra("EXTRA_QUOTE", motivationalQuotes.random())
         }
-        val pendingIntent = PendingIntent.getBroadcast(
-            context,
-            itemId.hashCode(),
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        val showAppIntent = PendingIntent.getActivity(
-            context,
-            itemId.hashCode() + 7,
-            Intent(context, MainActivity::class.java),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val pendingIntent = PendingIntent.getBroadcast(context, itemId.hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val showAppIntent = PendingIntent.getActivity(context, itemId.hashCode() + 7, Intent(context, MainActivity::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val canExact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
 
         try {
-            if (canExact) {
-                alarmManager.setAlarmClock(AlarmManager.AlarmClockInfo(triggerMillis, showAppIntent), pendingIntent)
-            } else {
-                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMillis, pendingIntent)
-            }
+            if (canExact) alarmManager.setAlarmClock(AlarmManager.AlarmClockInfo(triggerMillis, showAppIntent), pendingIntent)
+            else alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMillis, pendingIntent)
         } catch (_: SecurityException) {
             alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMillis, pendingIntent)
         } catch (_: Exception) {
@@ -867,14 +1394,8 @@ object ReminderScheduler {
 
     fun cancelReminder(context: Context, itemId: String) {
         try {
-            val intent = Intent(context, MotivationReminderReceiver::class.java)
-            val pendingIntent = PendingIntent.getBroadcast(
-                context,
-                itemId.hashCode(),
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            (context.getSystemService(Context.ALARM_SERVICE) as AlarmManager).cancel(pendingIntent)
+            val pi = PendingIntent.getBroadcast(context, itemId.hashCode(), Intent(context, MotivationReminderReceiver::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            (context.getSystemService(Context.ALARM_SERVICE) as AlarmManager).cancel(pi)
         } catch (_: Exception) {
         }
     }
@@ -883,10 +1404,8 @@ object ReminderScheduler {
         val notifOk = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         } else true
-
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val exactOk = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
-
         val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
         val batteryOk = powerManager.isIgnoringBatteryOptimizations(context.packageName)
 
@@ -918,14 +1437,10 @@ class MotivationReminderReceiver : BroadcastReceiver() {
 
                 CelebrationSoundEngine.playCustomOrDefaultSound(context, customSoundUri, isReminder = true)
 
-                val channelId = "alpha_studio_alerts_v6"
+                val channelId = "alpha_studio_alerts_v7"
                 val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    val channel = NotificationChannel(
-                        channelId,
-                        "Alpha Studio Reminders",
-                        NotificationManager.IMPORTANCE_HIGH
-                    ).apply {
+                    val channel = NotificationChannel(channelId, "Alpha Studio Reminders", NotificationManager.IMPORTANCE_HIGH).apply {
                         description = "Exact habit & mission notifications that survive Doze mode"
                         enableVibration(true)
                         lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
@@ -936,16 +1451,13 @@ class MotivationReminderReceiver : BroadcastReceiver() {
                 val launchIntent = Intent(context, MainActivity::class.java).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 }
-                val contentPendingIntent = PendingIntent.getActivity(
-                    context, id.hashCode(), launchIntent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
+                val contentPendingIntent = PendingIntent.getActivity(context, id.hashCode(), launchIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
                 val notification = NotificationCompat.Builder(context, channelId)
                     .setSmallIcon(android.R.drawable.ic_popup_reminder)
                     .setContentTitle(if (isHabit) "⚡ Alpha Habit: $title" else "🎯 Alpha Mission: $title")
                     .setContentText(quote)
-                    .setStyle(NotificationCompat.BigTextStyle().bigText("$quote\nTap to log progress and evolve your Sentinel."))
+                    .setStyle(NotificationCompat.BigTextStyle().bigText("$quote\nTap to keep your Brain Mood thriving!"))
                     .setPriority(NotificationCompat.PRIORITY_MAX)
                     .setCategory(NotificationCompat.CATEGORY_REMINDER)
                     .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -955,16 +1467,16 @@ class MotivationReminderReceiver : BroadcastReceiver() {
 
                 nm.notify(id.hashCode(), notification)
 
+                // Keep Brain Mood widget fresh when reminders trigger
+                BrainMoodWidgetProvider.updateAllBrainWidgets(context)
+
                 if (isRecurring && timeStr.isNotBlank()) {
                     ReminderScheduler.scheduleReminder(context, id, title, timeStr, isHabit, true, customSoundUri)
                 }
                 Thread.sleep(2400L)
             } catch (_: Exception) {
             } finally {
-                try {
-                    if (wakeLock?.isHeld == true) wakeLock.release()
-                } catch (_: Exception) {
-                }
+                try { if (wakeLock?.isHeld == true) wakeLock.release() } catch (_: Exception) {}
                 pendingResult.finish()
             }
         }.start()
@@ -979,6 +1491,7 @@ class BootAndAlarmRescheduleReceiver : BroadcastReceiver() {
                 ReminderScheduler.rescheduleAllSavedAlarms(context)
                 HabitWidgetProvider.updateAllWidgets(context)
                 TaskWidgetProvider.updateAllTaskWidgets(context)
+                BrainMoodWidgetProvider.updateAllBrainWidgets(context)
             } catch (_: Exception) {
             } finally {
                 pendingResult.finish()
@@ -988,8 +1501,57 @@ class BootAndAlarmRescheduleReceiver : BroadcastReceiver() {
 }
 
 // ============================================================================
-// 8. HOME SCREEN WIDGETS (Habits + Auto-Renewing Tasks)
+// 7. HOME SCREEN WIDGETS (1: Habits, 2: Missions, 3: Reactive Brain Mood)
 // ============================================================================
+class BrainMoodWidgetProvider : AppWidgetProvider() {
+
+    override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
+        updateAllBrainWidgets(context)
+    }
+
+    companion object {
+        fun updateAllBrainWidgets(context: Context) {
+            try {
+                val manager = AppWidgetManager.getInstance(context)
+                val ids = manager.getAppWidgetIds(ComponentName(context, BrainMoodWidgetProvider::class.java))
+                if (ids.isEmpty()) return
+
+                val storage = StudioStorageManager(context)
+                val habits = storage.loadHabitsOnly()
+                val tasks = storage.loadTasksOnly()
+                val colorPref = storage.getBrainWidgetColorPref()
+
+                val snapshot = BrainMoodCalculator.evaluate(
+                    habits = habits,
+                    tasks = tasks,
+                    colorPref = colorPref
+                )
+                val brainBitmap = BrainCharacterRenderer.renderBrainBitmap(snapshot.mood, sizePx = 240)
+
+                val openPending = PendingIntent.getActivity(
+                    context,
+                    99,
+                    Intent(context, MainActivity::class.java),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+
+                for (widgetId in ids) {
+                    val views = RemoteViews(context.packageName, R.layout.brain_widget_layout)
+                    views.setInt(R.id.brain_widget_root, "setBackgroundResource", snapshot.drawableResId)
+                    views.setTextViewText(R.id.brain_widget_ratio, snapshot.ratioText)
+                    views.setTextViewText(R.id.brain_widget_subtitle, snapshot.subtitleText)
+                    views.setTextViewText(R.id.brain_widget_message, snapshot.headlineText)
+                    views.setTextViewText(R.id.brain_widget_breakdown, snapshot.breakdownText)
+                    views.setImageViewBitmap(R.id.brain_widget_character, brainBitmap)
+                    views.setOnClickPendingIntent(R.id.brain_widget_root, openPending)
+                    manager.updateAppWidget(widgetId, views)
+                }
+            } catch (_: Exception) {
+            }
+        }
+    }
+}
+
 class HabitWidgetProvider : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
@@ -1008,6 +1570,7 @@ class HabitWidgetProvider : AppWidgetProvider() {
                 Toast.makeText(context, "⚡ $toggledTitle Complete! +35 XP", Toast.LENGTH_SHORT).show()
             }
             updateAllWidgets(context)
+            BrainMoodWidgetProvider.updateAllBrainWidgets(context)
         }
     }
 
@@ -1036,11 +1599,7 @@ class HabitWidgetProvider : AppWidgetProvider() {
                 for (widgetId in ids) {
                     val views = RemoteViews(context.packageName, R.layout.habit_widget_layout)
                     views.setTextViewText(R.id.widget_header_score, "$doneCount/${habits.size} Done")
-
-                    val openPending = PendingIntent.getActivity(
-                        context, 0, Intent(context, MainActivity::class.java),
-                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                    )
+                    val openPending = PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
                     views.setOnClickPendingIntent(R.id.widget_header_title, openPending)
 
                     for (i in 0 until 4) {
@@ -1052,20 +1611,15 @@ class HabitWidgetProvider : AppWidgetProvider() {
                             views.setTextViewText(titleId, "${h.emoji} ${h.title}  •  🔥${h.currentStreak(today)}d")
                             views.setTextViewText(btnId, if (isDone) "✓" else "+")
                             views.setInt(btnId, "setBackgroundResource", if (isDone) R.drawable.widget_btn_done else R.drawable.widget_btn_pending)
-                            views.setTextColor(btnId, if (isDone) android.graphics.Color.BLACK else android.graphics.Color.parseColor("#34D399"))
+                            views.setTextColor(btnId, if (isDone) AColor.BLACK else AColor.parseColor("#34D399"))
 
                             val toggleIntent = Intent(context, HabitWidgetProvider::class.java).apply {
                                 action = ACTION_WIDGET_TOGGLE_HABIT
                                 putExtra(EXTRA_HABIT_ID, h.id)
                             }
-                            val togglePending = PendingIntent.getBroadcast(
-                                context, h.id.hashCode(), toggleIntent,
-                                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                            )
+                            val togglePending = PendingIntent.getBroadcast(context, h.id.hashCode(), toggleIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
                             views.setOnClickPendingIntent(btnId, togglePending)
-                        } else {
-                            views.setViewVisibility(rowId, View.GONE)
-                        }
+                        } else views.setViewVisibility(rowId, View.GONE)
                     }
                     manager.updateAppWidget(widgetId, views)
                 }
@@ -1093,6 +1647,7 @@ class TaskWidgetProvider : AppWidgetProvider() {
                 Toast.makeText(context, "🎯 Mission Complete: $completedTitle!", Toast.LENGTH_SHORT).show()
             }
             updateAllTaskWidgets(context)
+            BrainMoodWidgetProvider.updateAllBrainWidgets(context)
         }
     }
 
@@ -1107,8 +1662,7 @@ class TaskWidgetProvider : AppWidgetProvider() {
                 if (ids.isEmpty()) return
 
                 val storage = StudioStorageManager(context)
-                val tasks = storage.loadTasksOnly()
-                    .sortedWith(compareBy<TodoTask> { it.isCompleted }.thenBy { it.priority.ordinal })
+                val tasks = storage.loadTasksOnly().sortedWith(compareBy<TodoTask> { it.isCompleted }.thenBy { it.priority.ordinal })
                 val pendingCount = tasks.count { !it.isCompleted }
 
                 val rowIds = listOf(
@@ -1121,11 +1675,7 @@ class TaskWidgetProvider : AppWidgetProvider() {
                 for (widgetId in ids) {
                     val views = RemoteViews(context.packageName, R.layout.task_widget_layout)
                     views.setTextViewText(R.id.task_widget_header_score, "$pendingCount Active")
-
-                    val openPending = PendingIntent.getActivity(
-                        context, 1, Intent(context, MainActivity::class.java),
-                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                    )
+                    val openPending = PendingIntent.getActivity(context, 1, Intent(context, MainActivity::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
                     views.setOnClickPendingIntent(R.id.task_widget_header_title, openPending)
 
                     for (i in 0 until 4) {
@@ -1137,20 +1687,15 @@ class TaskWidgetProvider : AppWidgetProvider() {
                             views.setTextViewText(titleId, "[${t.priority.shortTag}] ${t.title}$renewIcon")
                             views.setTextViewText(btnId, "✓")
                             views.setInt(btnId, "setBackgroundResource", if (t.isCompleted) R.drawable.widget_btn_done else R.drawable.widget_btn_pending)
-                            views.setTextColor(btnId, if (t.isCompleted) android.graphics.Color.BLACK else android.graphics.Color.parseColor("#34D399"))
+                            views.setTextColor(btnId, if (t.isCompleted) AColor.BLACK else AColor.parseColor("#34D399"))
 
                             val toggleIntent = Intent(context, TaskWidgetProvider::class.java).apply {
                                 action = ACTION_WIDGET_TOGGLE_TASK
                                 putExtra(EXTRA_TASK_ID, t.id)
                             }
-                            val togglePending = PendingIntent.getBroadcast(
-                                context, t.id.hashCode(), toggleIntent,
-                                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                            )
+                            val togglePending = PendingIntent.getBroadcast(context, t.id.hashCode(), toggleIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
                             views.setOnClickPendingIntent(btnId, togglePending)
-                        } else {
-                            views.setViewVisibility(rowId, View.GONE)
-                        }
+                        } else views.setViewVisibility(rowId, View.GONE)
                     }
                     manager.updateAppWidget(widgetId, views)
                 }
@@ -1161,7 +1706,7 @@ class TaskWidgetProvider : AppWidgetProvider() {
 }
 
 // ============================================================================
-// 9. ASYNC PERSISTENCE & GOOGLE DRIVE BACKUP ENGINE (Schema v8 with Goals)
+// 8. ASYNC PERSISTENCE & GOOGLE DRIVE BACKUP ENGINE
 // ============================================================================
 class StudioStorageManager(private val context: Context) {
     private val prefs = context.getSharedPreferences("aura_studio_vault_v2", Context.MODE_PRIVATE)
@@ -1174,6 +1719,7 @@ class StudioStorageManager(private val context: Context) {
         autoBackup: Boolean,
         readingTheme: SanctuaryReadingTheme = SanctuaryReadingTheme.WARM_SEPIA,
         readingFontScale: Float = 1.0f,
+        brainWidgetColorPref: BrainWidgetColorPref = BrainWidgetColorPref.AUTO_DYNAMIC,
         habits: List<Habit>,
         todos: List<TodoTask>,
         goals: List<GoalItem>,
@@ -1181,17 +1727,7 @@ class StudioStorageManager(private val context: Context) {
         journals: List<JournalEntry>,
         notes: List<NotebookEntry>
     ): String {
-        val root = serializeToJson(
-            xp = xp,
-            streakShields = streakShields,
-            claimedQuests = claimedQuests,
-            habits = habits,
-            todos = todos,
-            goals = goals,
-            hourlyLogs = hourlyLogs,
-            journals = journals,
-            notes = notes
-        )
+        val root = serializeToJson(xp, streakShields, claimedQuests, habits, todos, goals, hourlyLogs, journals, notes)
         val compactJson = root.toString()
         val nowFormatted = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a"))
         prefs.edit()
@@ -1200,10 +1736,12 @@ class StudioStorageManager(private val context: Context) {
             .putBoolean("auto_backup", autoBackup)
             .putString("reading_theme", readingTheme.name)
             .putFloat("reading_font_scale", readingFontScale)
+            .putString("brain_widget_color_pref", brainWidgetColorPref.name)
             .putString("last_saved_time", nowFormatted)
             .apply()
         HabitWidgetProvider.updateAllWidgets(context)
         TaskWidgetProvider.updateAllTaskWidgets(context)
+        BrainMoodWidgetProvider.updateAllBrainWidgets(context)
         return compactJson
     }
 
@@ -1212,9 +1750,10 @@ class StudioStorageManager(private val context: Context) {
     fun getLastBackupTime(): String = prefs.getString("last_saved_time", "Synced just now") ?: "Synced just now"
     fun isAutoBackup(): Boolean = prefs.getBoolean("auto_backup", true)
     fun getReadingTheme(): SanctuaryReadingTheme =
-        runCatching { SanctuaryReadingTheme.valueOf(prefs.getString("reading_theme", "WARM_SEPIA")!!) }
-            .getOrDefault(SanctuaryReadingTheme.WARM_SEPIA)
+        runCatching { SanctuaryReadingTheme.valueOf(prefs.getString("reading_theme", "WARM_SEPIA")!!) }.getOrDefault(SanctuaryReadingTheme.WARM_SEPIA)
     fun getReadingFontScale(): Float = prefs.getFloat("reading_font_scale", 1.0f)
+    fun getBrainWidgetColorPref(): BrainWidgetColorPref =
+        runCatching { BrainWidgetColorPref.valueOf(prefs.getString("brain_widget_color_pref", "AUTO_DYNAMIC")!!) }.getOrDefault(BrainWidgetColorPref.AUTO_DYNAMIC)
 
     fun loadHabitsOnly(): List<Habit> {
         val jsonStr = getSavedJson() ?: return emptyList()
@@ -1270,6 +1809,7 @@ class StudioStorageManager(private val context: Context) {
                         title = o.optString("title"),
                         category = o.optString("category", "Personal"),
                         priority = runCatching { TodoPriority.valueOf(o.optString("priority")) }.getOrDefault(TodoPriority.P2_HIGH),
+                        date = o.optString("date", todayStr),
                         reminderTime = o.optString("reminderTime", ""),
                         customSoundUri = o.optString("customSoundUri", ""),
                         isCompleted = effectiveCompleted,
@@ -1318,7 +1858,6 @@ class StudioStorageManager(private val context: Context) {
                     break
                 }
             }
-
             if (completedHabitTitle != null) root.put("xp", root.optInt("xp", 520) + 35)
             prefs.edit().putString("master_state_json", root.toString()).apply()
             return completedHabitTitle?.let { it to soundUri }
@@ -1350,7 +1889,6 @@ class StudioStorageManager(private val context: Context) {
                     break
                 }
             }
-
             if (newlyCompletedTitle != null) root.put("xp", root.optInt("xp", 520) + 25)
             prefs.edit().putString("master_state_json", root.toString()).apply()
             return newlyCompletedTitle?.let { it to soundUri }
@@ -1359,22 +1897,14 @@ class StudioStorageManager(private val context: Context) {
         }
     }
 
-    fun exportBackupToUri(uri: Uri, jsonContent: String): Boolean {
-        return try {
-            context.contentResolver.openOutputStream(uri)?.use { out -> out.write(jsonContent.toByteArray(Charsets.UTF_8)) }
-            true
-        } catch (_: Exception) {
-            false
-        }
-    }
+    fun exportBackupToUri(uri: Uri, jsonContent: String): Boolean = try {
+        context.contentResolver.openOutputStream(uri)?.use { out -> out.write(jsonContent.toByteArray(Charsets.UTF_8)) }
+        true
+    } catch (_: Exception) { false }
 
-    fun readBackupFromUri(uri: Uri): String? {
-        return try {
-            context.contentResolver.openInputStream(uri)?.use { input -> BufferedReader(InputStreamReader(input)).readText() }
-        } catch (_: Exception) {
-            null
-        }
-    }
+    fun readBackupFromUri(uri: Uri): String? = try {
+        context.contentResolver.openInputStream(uri)?.use { input -> BufferedReader(InputStreamReader(input)).readText() }
+    } catch (_: Exception) { null }
 
     fun serializeToJson(
         xp: Int,
@@ -1388,7 +1918,7 @@ class StudioStorageManager(private val context: Context) {
         notes: List<NotebookEntry>
     ): JSONObject {
         val root = JSONObject()
-        root.put("schemaVersion", 8)
+        root.put("schemaVersion", 9)
         root.put("exportedAt", System.currentTimeMillis())
         root.put("xp", xp)
         root.put("streakShields", streakShields)
@@ -1397,19 +1927,10 @@ class StudioStorageManager(private val context: Context) {
         val habitsArr = JSONArray()
         habits.forEach { h ->
             habitsArr.put(JSONObject().apply {
-                put("id", h.id)
-                put("title", h.title)
-                put("emoji", h.emoji)
-                put("category", h.category)
-                put("timeOfDay", h.timeOfDay.name)
-                put("habitStackingCue", h.habitStackingCue)
-                put("type", h.type.name)
-                put("colorHex", h.colorHex)
-                put("targetValue", h.targetValue.toDouble())
-                put("unit", h.unit)
-                put("stepSize", h.stepSize.toDouble())
-                put("reminderTime", h.reminderTime)
-                put("customSoundUri", h.customSoundUri)
+                put("id", h.id); put("title", h.title); put("emoji", h.emoji); put("category", h.category)
+                put("timeOfDay", h.timeOfDay.name); put("habitStackingCue", h.habitStackingCue); put("type", h.type.name)
+                put("colorHex", h.colorHex); put("targetValue", h.targetValue.toDouble()); put("unit", h.unit)
+                put("stepSize", h.stepSize.toDouble()); put("reminderTime", h.reminderTime); put("customSoundUri", h.customSoundUri)
                 val logsObj = JSONObject()
                 h.logs.forEach { (k, v) -> logsObj.put(k, v.toDouble()) }
                 put("logs", logsObj)
@@ -1420,29 +1941,13 @@ class StudioStorageManager(private val context: Context) {
         val todosArr = JSONArray()
         todos.forEach { t ->
             val subArr = JSONArray()
-            t.subTasks.forEach { s ->
-                subArr.put(JSONObject().apply {
-                    put("id", s.id)
-                    put("title", s.title)
-                    put("isDone", s.isDone)
-                })
-            }
+            t.subTasks.forEach { s -> subArr.put(JSONObject().apply { put("id", s.id); put("title", s.title); put("isDone", s.isDone) }) }
             todosArr.put(JSONObject().apply {
-                put("id", t.id)
-                put("title", t.title)
-                put("category", t.category)
-                put("priority", t.priority.name)
-                put("date", t.date)
-                put("timeBlock", t.timeBlock)
-                put("reminderTime", t.reminderTime)
-                put("customSoundUri", t.customSoundUri)
-                put("isCompleted", t.isCompleted)
-                put("isRecurring", t.isRecurring)
-                put("lastCompletedDate", t.lastCompletedDate)
-                put("renewalStreak", t.renewalStreak)
-                put("estimatedMinutes", t.estimatedMinutes)
-                put("subTasks", subArr)
-                put("notes", t.notes)
+                put("id", t.id); put("title", t.title); put("category", t.category); put("priority", t.priority.name)
+                put("date", t.date); put("timeBlock", t.timeBlock); put("reminderTime", t.reminderTime)
+                put("customSoundUri", t.customSoundUri); put("isCompleted", t.isCompleted); put("isRecurring", t.isRecurring)
+                put("lastCompletedDate", t.lastCompletedDate); put("renewalStreak", t.renewalStreak)
+                put("estimatedMinutes", t.estimatedMinutes); put("subTasks", subArr); put("notes", t.notes)
             })
         }
         root.put("todos", todosArr)
@@ -1452,26 +1957,15 @@ class StudioStorageManager(private val context: Context) {
             val workArr = JSONArray()
             g.dailyLogs.forEach { wl ->
                 workArr.put(JSONObject().apply {
-                    put("id", wl.id)
-                    put("date", wl.date)
-                    put("workSummary", wl.workSummary)
-                    put("progressDelta", wl.progressDelta.toDouble())
-                    put("minutesSpent", wl.minutesSpent)
+                    put("id", wl.id); put("date", wl.date); put("workSummary", wl.workSummary)
+                    put("progressDelta", wl.progressDelta.toDouble()); put("minutesSpent", wl.minutesSpent)
                 })
             }
             goalsArr.put(JSONObject().apply {
-                put("id", g.id)
-                put("title", g.title)
-                put("emoji", g.emoji)
-                put("category", g.category)
-                put("description", g.description)
-                put("deadlineIso", g.deadlineIso)
-                put("targetValue", g.targetValue.toDouble())
-                put("currentValue", g.currentValue.toDouble())
-                put("unit", g.unit)
-                put("colorHex", g.colorHex)
-                put("dailyLogs", workArr)
-                put("createdAt", g.createdAt)
+                put("id", g.id); put("title", g.title); put("emoji", g.emoji); put("category", g.category)
+                put("description", g.description); put("deadlineIso", g.deadlineIso)
+                put("targetValue", g.targetValue.toDouble()); put("currentValue", g.currentValue.toDouble())
+                put("unit", g.unit); put("colorHex", g.colorHex); put("dailyLogs", workArr); put("createdAt", g.createdAt)
             })
         }
         root.put("goals", goalsArr)
@@ -1479,11 +1973,8 @@ class StudioStorageManager(private val context: Context) {
         val hourlyArr = JSONArray()
         hourlyLogs.forEach { hl ->
             hourlyArr.put(JSONObject().apply {
-                put("id", hl.id)
-                put("date", hl.date)
-                put("hour24", hl.hour24)
-                put("activityNote", hl.activityNote)
-                put("status", hl.status.name)
+                put("id", hl.id); put("date", hl.date); put("hour24", hl.hour24)
+                put("activityNote", hl.activityNote); put("status", hl.status.name)
             })
         }
         root.put("hourlyLogs", hourlyArr)
@@ -1491,18 +1982,10 @@ class StudioStorageManager(private val context: Context) {
         val journalsArr = JSONArray()
         journals.forEach { j ->
             journalsArr.put(JSONObject().apply {
-                put("id", j.id)
-                put("date", j.date)
-                put("isoDate", j.isoDate)
-                put("title", j.title)
-                put("moodEmoji", j.moodEmoji)
-                put("energyScore", j.energyScore)
-                put("gratitudeOrWins", j.gratitudeOrWins)
-                put("dailyStory", j.dailyStory)
-                put("frictionOrMistakes", j.frictionOrMistakes)
-                put("actionItems", JSONArray(j.actionItems))
-                put("photoUris", JSONArray(j.photoUris))
-                put("tags", JSONArray(j.tags))
+                put("id", j.id); put("date", j.date); put("isoDate", j.isoDate); put("title", j.title)
+                put("moodEmoji", j.moodEmoji); put("energyScore", j.energyScore); put("gratitudeOrWins", j.gratitudeOrWins)
+                put("dailyStory", j.dailyStory); put("frictionOrMistakes", j.frictionOrMistakes)
+                put("actionItems", JSONArray(j.actionItems)); put("photoUris", JSONArray(j.photoUris)); put("tags", JSONArray(j.tags))
             })
         }
         root.put("journals", journalsArr)
@@ -1510,26 +1993,13 @@ class StudioStorageManager(private val context: Context) {
         val notesArr = JSONArray()
         notes.forEach { n ->
             val fcArr = JSONArray()
-            n.flashcards.forEach { f ->
-                fcArr.put(JSONObject().apply {
-                    put("question", f.question)
-                    put("answer", f.answer)
-                })
-            }
+            n.flashcards.forEach { f -> fcArr.put(JSONObject().apply { put("question", f.question); put("answer", f.answer) }) }
             notesArr.put(JSONObject().apply {
-                put("id", n.id)
-                put("category", n.category.name)
-                put("title", n.title)
-                put("authorOrSubtitle", n.authorOrSubtitle)
-                put("rating", n.rating)
-                put("readingProgress", n.readingProgress)
-                put("isPinned", n.isPinned)
-                put("coverColorHex", n.coverColorHex)
-                put("favoriteQuote", n.favoriteQuote)
-                put("keyTakeaways", JSONArray(n.keyTakeaways))
-                put("detailedNotes", n.detailedNotes)
-                put("flashcards", fcArr)
-                put("updatedAt", n.updatedAt)
+                put("id", n.id); put("category", n.category.name); put("title", n.title); put("authorOrSubtitle", n.authorOrSubtitle)
+                put("rating", n.rating); put("readingProgress", n.readingProgress); put("isPinned", n.isPinned)
+                put("coverColorHex", n.coverColorHex); put("favoriteQuote", n.favoriteQuote)
+                put("keyTakeaways", JSONArray(n.keyTakeaways)); put("detailedNotes", n.detailedNotes)
+                put("flashcards", fcArr); put("updatedAt", n.updatedAt)
             })
         }
         root.put("notes", notesArr)
@@ -1538,7 +2008,7 @@ class StudioStorageManager(private val context: Context) {
 }
 
 // ============================================================================
-// 10. HIGH-PERFORMANCE STUDIO VIEWMODEL (Goals, Strict Character, Quests)
+// 9. HIGH-PERFORMANCE STUDIO VIEWMODEL (MindState, Goals, Strict Character)
 // ============================================================================
 class HabitTrackerViewModel : ViewModel() {
 
@@ -1557,6 +2027,8 @@ class HabitTrackerViewModel : ViewModel() {
 
     val readingTheme = mutableStateOf(SanctuaryReadingTheme.WARM_SEPIA)
     val readingFontScale = mutableFloatStateOf(1.0f)
+    val brainWidgetColorPref = mutableStateOf(BrainWidgetColorPref.AUTO_DYNAMIC)
+    val ambientSoundMode = mutableStateOf(AmbientSoundMode.OFF)
 
     val userXp = mutableIntStateOf(420)
     val streakShields = mutableIntStateOf(2)
@@ -1566,7 +2038,6 @@ class HabitTrackerViewModel : ViewModel() {
     val xpProgressInLevel: Float get() = ((userXp.intValue.coerceAtLeast(0)) % 200) / 200f
     val userRankTitle: String get() = cachedCharacterStats.value.stage.title
 
-    // Cached state keeps UI smooth at 120fps with minimal CPU/battery load
     val cachedCharacterStats = mutableStateOf(
         AlphaCharacterStats(
             stage = CharacterStage.STAGE_2_SENTINEL,
@@ -1584,6 +2055,9 @@ class HabitTrackerViewModel : ViewModel() {
             nextUpgradeRequirementText = "Next armor tier at 900 XP or 7d streak"
         )
     )
+    val cachedBrainSnapshot = mutableStateOf(
+        BrainMoodCalculator.buildPreviewSnapshot(BrainMoodState.FOCUSED_GOOD, BrainWidgetColorPref.AUTO_DYNAMIC)
+    )
     val cachedTodayScore = mutableIntStateOf(70)
     val cachedDailyQuests = mutableStateOf<List<DailyQuestStatus>>(emptyList())
     val notificationHealth = mutableStateOf(NotificationHealthStatus(true, true, true, 0))
@@ -1592,17 +2066,33 @@ class HabitTrackerViewModel : ViewModel() {
 
     private val studioMotivationalPrinciples = listOf(
         "“No shortcuts exist in mastery—only the work you log today.”",
-        "“Small, relentless daily wins forge an unbreakable identity.”",
+        "“Keep your mind sharp. Finish your daily wins before the sun sets.”",
         "“Protect your focus hours as fiercely as your long-term goals.”",
         "“Deadlines don't move for hesitation. Log one focused session now.”",
-        "“Your character reflects your real discipline—keep earning every upgrade.”",
-        "“Quiet consistency outperforms loud bursts of motivation every single week.”"
+        "“Calm focus beats frantic energy. Breathe, lock in, and execute.”",
+        "“Quiet consistency outperforms loud bursts of motivation every week.”"
     )
 
     fun refreshCachedMetrics() {
         cachedCharacterStats.value = computeCharacterStats()
         cachedTodayScore.intValue = getDailyProductivityScore(LocalDate.now())
         cachedDailyQuests.value = computeDailyQuests()
+        cachedBrainSnapshot.value = BrainMoodCalculator.evaluate(
+            habits = habits,
+            tasks = todos,
+            colorPref = brainWidgetColorPref.value
+        )
+    }
+
+    fun setBrainWidgetColorPref(context: Context, pref: BrainWidgetColorPref) {
+        brainWidgetColorPref.value = pref
+        refreshCachedMetrics()
+        persistStateAsync(context)
+    }
+
+    fun setAmbientSound(mode: AmbientSoundMode) {
+        ambientSoundMode.value = mode
+        CelebrationSoundEngine.startAmbientSound(mode)
     }
 
     fun refreshNotificationHealth(context: Context) {
@@ -1628,18 +2118,10 @@ class HabitTrackerViewModel : ViewModel() {
         )
     }
 
-    // --- NEW GOAL ACHIEVEMENT OPERATIONS ---
+    // --- GOAL ACHIEVEMENT OPERATIONS ---
     fun saveOrUpdateGoal(
-        context: Context,
-        existingId: String?,
-        title: String,
-        emoji: String,
-        category: String,
-        description: String,
-        deadlineIso: String,
-        targetValue: Float,
-        unit: String,
-        colorHex: Long
+        context: Context, existingId: String?, title: String, emoji: String, category: String,
+        description: String, deadlineIso: String, targetValue: Float, unit: String, colorHex: Long
     ) {
         val cleanTitle = title.trim()
         if (cleanTitle.isEmpty()) return
@@ -1649,64 +2131,42 @@ class HabitTrackerViewModel : ViewModel() {
             val idx = goals.indexOfFirst { it.id == existingId }
             if (idx != -1) {
                 goals[idx] = goals[idx].copy(
-                    title = cleanTitle,
-                    emoji = emoji.ifBlank { "🎯" },
-                    category = category.ifBlank { "Career" },
-                    description = description.trim(),
-                    deadlineIso = deadlineIso,
-                    targetValue = safeTarget,
-                    unit = unit.ifBlank { "%" },
-                    colorHex = colorHex
+                    title = cleanTitle, emoji = emoji.ifBlank { "🎯" }, category = category.ifBlank { "Career" },
+                    description = description.trim(), deadlineIso = deadlineIso, targetValue = safeTarget,
+                    unit = unit.ifBlank { "%" }, colorHex = colorHex
                 )
                 refreshCachedMetrics()
                 persistStateAsync(context)
                 return
             }
         }
-
         goals.add(
             0,
             GoalItem(
-                title = cleanTitle,
-                emoji = emoji.ifBlank { "🎯" },
-                category = category.ifBlank { "Career" },
-                description = description.trim(),
-                deadlineIso = deadlineIso,
-                targetValue = safeTarget,
-                currentValue = 0f,
-                unit = unit.ifBlank { "%" },
-                colorHex = colorHex
+                title = cleanTitle, emoji = emoji.ifBlank { "🎯" }, category = category.ifBlank { "Career" },
+                description = description.trim(), deadlineIso = deadlineIso, targetValue = safeTarget,
+                currentValue = 0f, unit = unit.ifBlank { "%" }, colorHex = colorHex
             )
         )
         refreshCachedMetrics()
         persistStateAsync(context)
     }
 
-    fun logDailyGoalWork(
-        context: Context,
-        goalId: String,
-        workSummary: String,
-        progressDelta: Float,
-        minutesSpent: Int,
-        date: LocalDate = LocalDate.now()
-    ) {
+    fun logDailyGoalWork(context: Context, goalId: String, workSummary: String, progressDelta: Float, minutesSpent: Int, date: LocalDate = LocalDate.now()) {
         val idx = goals.indexOfFirst { it.id == goalId }
         if (idx == -1) return
         val currentGoal = goals[idx]
         val wasDone = currentGoal.isCompleted
 
-        val cleanSummary = workSummary.trim().ifBlank { "Daily progress logged" }
         val newLog = GoalWorkLog(
             date = date.toString(),
-            workSummary = cleanSummary,
+            workSummary = workSummary.trim().ifBlank { "Daily progress logged" },
             progressDelta = progressDelta.coerceAtLeast(0f),
             minutesSpent = minutesSpent.coerceAtLeast(5)
         )
-        val updatedLogs = listOf(newLog) + currentGoal.dailyLogs
-        val updatedValue = (currentGoal.currentValue + progressDelta).coerceAtLeast(0f)
         val updatedGoal = currentGoal.copy(
-            currentValue = updatedValue,
-            dailyLogs = updatedLogs
+            currentValue = (currentGoal.currentValue + progressDelta).coerceAtLeast(0f),
+            dailyLogs = listOf(newLog) + currentGoal.dailyLogs
         )
         goals[idx] = updatedGoal
         refreshCachedMetrics()
@@ -1725,10 +2185,7 @@ class HabitTrackerViewModel : ViewModel() {
         if (idx == -1) return
         val g = goals[idx]
         val removed = g.dailyLogs.find { it.id == logId } ?: return
-        goals[idx] = g.copy(
-            currentValue = (g.currentValue - removed.progressDelta).coerceAtLeast(0f),
-            dailyLogs = g.dailyLogs.filterNot { it.id == logId }
-        )
+        goals[idx] = g.copy(currentValue = (g.currentValue - removed.progressDelta).coerceAtLeast(0f), dailyLogs = g.dailyLogs.filterNot { it.id == logId })
         refreshCachedMetrics()
         persistStateAsync(context)
     }
@@ -1750,56 +2207,13 @@ class HabitTrackerViewModel : ViewModel() {
         }
 
         return listOf(
-            DailyQuestStatus(
-                id = "q_goal",
-                title = "Goal Builder",
-                description = "Log daily work on 1 Goal",
-                emoji = "🎯",
-                current = goalLogsToday,
-                target = 1,
-                rewardXp = 55,
-                grantsShield = false,
-                isClaimed = claimedQuestKeys.contains("${todayStr}_q_goal")
-            ),
-            DailyQuestStatus(
-                id = "q_habits",
-                title = "Habit Striker",
-                description = "Complete 2 habits today",
-                emoji = "⚡",
-                current = habitsDoneToday,
-                target = 2,
-                rewardXp = 50,
-                grantsShield = false,
-                isClaimed = claimedQuestKeys.contains("${todayStr}_q_habits")
-            ),
-            DailyQuestStatus(
-                id = "q_tasks",
-                title = "Mission Executor",
-                description = "Finish 1 priority task",
-                emoji = "✅",
-                current = tasksDoneToday,
-                target = 1,
-                rewardXp = 40,
-                grantsShield = false,
-                isClaimed = claimedQuestKeys.contains("${todayStr}_q_tasks")
-            ),
-            DailyQuestStatus(
-                id = "q_hours",
-                title = "Time Guardian",
-                description = "Log 2 productive hours",
-                emoji = "⏱️",
-                current = productiveHoursToday,
-                target = 2,
-                rewardXp = 55,
-                grantsShield = true,
-                isClaimed = claimedQuestKeys.contains("${todayStr}_q_hours")
-            )
+            DailyQuestStatus("q_goal", "Goal Builder", "Log daily work on 1 Goal", "🎯", goalLogsToday, 1, 55, false, claimedQuestKeys.contains("${todayStr}_q_goal")),
+            DailyQuestStatus("q_habits", "Habit Striker", "Complete 2 habits today", "⚡", habitsDoneToday, 2, 50, false, claimedQuestKeys.contains("${todayStr}_q_habits")),
+            DailyQuestStatus("q_tasks", "Mission Executor", "Finish 1 priority task", "✅", tasksDoneToday, 1, 40, false, claimedQuestKeys.contains("${todayStr}_q_tasks")),
+            DailyQuestStatus("q_hours", "Time Guardian", "Log 2 productive hours", "⏱️", productiveHoursToday, 2, 55, true, claimedQuestKeys.contains("${todayStr}_q_hours"))
         )
     }
 
-    /**
-     * Strictly earned step-by-step armor evolution — zero manual upgrade shortcuts.
-     */
     private fun computeCharacterStats(): AlphaCharacterStats {
         val today = LocalDate.now()
         val todayStr = today.toString()
@@ -1833,26 +2247,19 @@ class HabitTrackerViewModel : ViewModel() {
         val stages = CharacterStage.entries
         var currentStage = stages.first()
         for (st in stages) {
-            if (xp >= st.minXpRequired && peakStreak >= st.minStreakRequired) {
-                currentStage = st
-            } else if (xp >= st.minXpRequired + 350) {
-                // High XP consistency can also unlock the next stage
+            if ((xp >= st.minXpRequired && peakStreak >= st.minStreakRequired) || xp >= st.minXpRequired + 350) {
                 currentStage = st
             }
         }
 
         val nextIdx = stages.indexOf(currentStage) + 1
         val nextStage = if (nextIdx < stages.size) stages[nextIdx] else null
-        val stageProgress = if (nextStage == null) {
-            1f
-        } else {
+        val stageProgress = if (nextStage == null) 1f else {
             val span = (nextStage.minXpRequired - currentStage.minXpRequired).coerceAtLeast(1)
             ((xp - currentStage.minXpRequired).toFloat() / span.toFloat()).coerceIn(0.05f, 1f)
         }
 
-        val nextReqText = if (nextStage == null) {
-            "Maximum Ascended Armor Achieved"
-        } else {
+        val nextReqText = if (nextStage == null) "Maximum Ascended Armor Achieved" else {
             val xpNeeded = (nextStage.minXpRequired - xp).coerceAtLeast(0)
             "Next Armor (${nextStage.title}): ${if (xpNeeded > 0) "$xpNeeded XP needed" else "XP Ready"} • ${nextStage.minStreakRequired}d streak"
         }
@@ -1869,30 +2276,15 @@ class HabitTrackerViewModel : ViewModel() {
         val power = ((str + intStat + wil + vit) * 3 + xp).coerceAtLeast(100)
 
         val dynamicBubble = customHeroQuote.value ?: when {
-            wastedToday > 0 && flowToday == 0 ->
-                "“$wastedToday unproductive hour(s) logged today. Reclaim the next hour with deep focus.”"
-            goalsWorkedToday > 0 ->
-                "“Goal work verified today. Your ${currentStage.suitName} is forging stronger step by step.”"
-            combo >= 1.5f ->
-                "“${combo}x execution combo active. Pure discipline—no shortcuts.”"
-            else ->
-                "“${currentStage.title} standing by. Complete habits, tasks & goal sessions to unlock ${nextStage?.title ?: "mastery"}.”"
+            wastedToday > 0 && flowToday == 0 -> "“$wastedToday unproductive hour(s) logged today. Reclaim the next hour with calm focus.”"
+            goalsWorkedToday > 0 -> "“Goal work verified today. Your ${currentStage.suitName} is forging stronger step by step.”"
+            combo >= 1.5f -> "“${combo}x execution combo active. Pure discipline—no shortcuts.”"
+            else -> "“${currentStage.title} standing by. Complete habits, missions & goal sessions to unlock ${nextStage?.title ?: "mastery"}.”"
         }
 
         return AlphaCharacterStats(
-            stage = currentStage,
-            nextStage = nextStage,
-            stageProgressFraction = stageProgress,
-            level = lvl,
-            combatPower = power,
-            strength = str,
-            intellect = intStat,
-            willpower = wil,
-            vitality = vit,
-            activeStreakBonus = totalStreakSum,
-            comboMultiplier = combo,
-            heroSpeechBubble = dynamicBubble,
-            nextUpgradeRequirementText = nextReqText
+            currentStage, nextStage, stageProgress, lvl, power, str, intStat, wil, vit,
+            totalStreakSum, combo, dynamicBubble, nextReqText
         )
     }
 
@@ -1914,46 +2306,28 @@ class HabitTrackerViewModel : ViewModel() {
         else -> "D • NEEDS FOCUS"
     }
 
-    fun logOrUpdateHour(
-        context: Context,
-        hour24: Int,
-        activityNote: String,
-        status: HourProductivityStatus,
-        date: LocalDate = selectedDate.value
-    ) {
+    fun logOrUpdateHour(context: Context, hour24: Int, activityNote: String, status: HourProductivityStatus, date: LocalDate = selectedDate.value) {
         val dateStr = date.toString()
         val existingIdx = hourlyLogs.indexOfFirst { it.date == dateStr && it.hour24 == hour24 }
         val previousXpDelta = if (existingIdx != -1) hourlyLogs[existingIdx].status.xpDelta else 0
 
         val newItem = HourlyLogItem(
             id = if (existingIdx != -1) hourlyLogs[existingIdx].id else UUID.randomUUID().toString(),
-            date = dateStr,
-            hour24 = hour24,
-            activityNote = activityNote.ifBlank { status.label },
-            status = status
+            date = dateStr, hour24 = hour24, activityNote = activityNote.ifBlank { status.label }, status = status
         )
-
         if (existingIdx != -1) hourlyLogs[existingIdx] = newItem else hourlyLogs.add(newItem)
         hourlyLogs.sortBy { it.hour24 }
 
-        val netXpChange = status.xpDelta - previousXpDelta
-        userXp.intValue = (userXp.intValue + netXpChange).coerceAtLeast(0)
+        userXp.intValue = (userXp.intValue + (status.xpDelta - previousXpDelta)).coerceAtLeast(0)
         refreshCachedMetrics()
 
         if (status.xpDelta > 0) {
-            awardXpAndCelebrate(
-                context = context,
-                title = "⚡ Productive Hour Logged",
-                subtitle = "${newItem.formattedHourRange()} • ${status.shortBadge} earned",
-                xpEarned = 0
-            )
+            awardXpAndCelebrate(context, "⚡ Productive Hour Logged", "${newItem.formattedHourRange()} • ${status.shortBadge} earned", 0)
         } else if (status.xpDelta < 0) {
             CelebrationSoundEngine.playPenaltyDrainSound(context)
             Toast.makeText(context, "⚠️ ${status.xpDelta} XP Penalty! Unproductive hour deducted.", Toast.LENGTH_LONG).show()
             persistStateAsync(context)
-        } else {
-            persistStateAsync(context)
-        }
+        } else persistStateAsync(context)
     }
 
     fun deleteHourlyLog(context: Context, id: String) {
@@ -1969,26 +2343,18 @@ class HabitTrackerViewModel : ViewModel() {
     fun checkAndAutoRenewDailyTasks(context: Context, forceRenewForTesting: Boolean = false) {
         val todayStr = LocalDate.now().toString()
         var renewedCount = 0
-
         for (i in todos.indices) {
             val t = todos[i]
             val shouldRenew = t.isRecurring && t.isCompleted && (forceRenewForTesting || (t.lastCompletedDate.isNotBlank() && t.lastCompletedDate != todayStr))
             if (shouldRenew) {
-                todos[i] = t.copy(
-                    isCompleted = false,
-                    date = todayStr,
-                    subTasks = t.subTasks.map { it.copy(isDone = false) }
-                )
+                todos[i] = t.copy(isCompleted = false, date = todayStr, subTasks = t.subTasks.map { it.copy(isDone = false) })
                 renewedCount++
             }
         }
-
         if (renewedCount > 0) {
             refreshCachedMetrics()
             persistStateAsync(context)
-            if (forceRenewForTesting) {
-                Toast.makeText(context, "🔄 $renewedCount Auto-Renewing task(s) refreshed!", Toast.LENGTH_SHORT).show()
-            }
+            if (forceRenewForTesting) Toast.makeText(context, "🔄 $renewedCount Auto-Renewing task(s) refreshed!", Toast.LENGTH_SHORT).show()
         } else if (forceRenewForTesting) {
             Toast.makeText(context, "Complete a 🔄 Daily Auto-Renew task first to test renewal!", Toast.LENGTH_SHORT).show()
         }
@@ -2021,6 +2387,7 @@ class HabitTrackerViewModel : ViewModel() {
         autoCloudSync.value = storage.isAutoBackup()
         readingTheme.value = storage.getReadingTheme()
         readingFontScale.floatValue = storage.getReadingFontScale()
+        brainWidgetColorPref.value = storage.getBrainWidgetColorPref()
 
         val savedJson = storage.getSavedJson()
         if (!savedJson.isNullOrBlank()) {
@@ -2038,6 +2405,7 @@ class HabitTrackerViewModel : ViewModel() {
 
         viewModelScope.launch(Dispatchers.IO) {
             ReminderScheduler.rescheduleAllSavedAlarms(appContext)
+            BrainMoodWidgetProvider.updateAllBrainWidgets(appContext)
         }
     }
 
@@ -2050,6 +2418,7 @@ class HabitTrackerViewModel : ViewModel() {
         val snapshotAuto = autoCloudSync.value
         val snapshotTheme = readingTheme.value
         val snapshotScale = readingFontScale.floatValue
+        val snapshotBrainPref = brainWidgetColorPref.value
         val snapshotHabits = habits.toList()
         val snapshotTodos = todos.toList()
         val snapshotGoals = goals.toList()
@@ -2062,19 +2431,11 @@ class HabitTrackerViewModel : ViewModel() {
             delay(250L)
             val storage = StudioStorageManager(appContext)
             storage.saveFullState(
-                xp = snapshotXp,
-                streakShields = snapshotShields,
-                claimedQuests = snapshotQuests,
-                googleEmail = snapshotEmail,
-                autoBackup = snapshotAuto,
-                readingTheme = snapshotTheme,
-                readingFontScale = snapshotScale,
-                habits = snapshotHabits,
-                todos = snapshotTodos,
-                goals = snapshotGoals,
-                hourlyLogs = snapshotHourly,
-                journals = snapshotJournals,
-                notes = snapshotNotes
+                xp = snapshotXp, streakShields = snapshotShields, claimedQuests = snapshotQuests,
+                googleEmail = snapshotEmail, autoBackup = snapshotAuto, readingTheme = snapshotTheme,
+                readingFontScale = snapshotScale, brainWidgetColorPref = snapshotBrainPref,
+                habits = snapshotHabits, todos = snapshotTodos, goals = snapshotGoals,
+                hourlyLogs = snapshotHourly, journals = snapshotJournals, notes = snapshotNotes
             )
             lastCloudBackup.value = storage.getLastBackupTime()
         }
@@ -2083,19 +2444,12 @@ class HabitTrackerViewModel : ViewModel() {
     fun buildBackupJsonNow(context: Context): String {
         val storage = StudioStorageManager(context.applicationContext)
         return storage.saveFullState(
-            xp = userXp.intValue,
-            streakShields = streakShields.intValue,
-            claimedQuests = claimedQuestKeys.toSet(),
-            googleEmail = connectedGoogleEmail.value,
-            autoBackup = autoCloudSync.value,
-            readingTheme = readingTheme.value,
-            readingFontScale = readingFontScale.floatValue,
-            habits = habits.toList(),
-            todos = todos.toList(),
-            goals = goals.toList(),
-            hourlyLogs = hourlyLogs.toList(),
-            journals = journals.toList(),
-            notes = notes.toList()
+            xp = userXp.intValue, streakShields = streakShields.intValue, claimedQuests = claimedQuestKeys.toSet(),
+            googleEmail = connectedGoogleEmail.value, autoBackup = autoCloudSync.value,
+            readingTheme = readingTheme.value, readingFontScale = readingFontScale.floatValue,
+            brainWidgetColorPref = brainWidgetColorPref.value,
+            habits = habits.toList(), todos = todos.toList(), goals = goals.toList(),
+            hourlyLogs = hourlyLogs.toList(), journals = journals.toList(), notes = notes.toList()
         )
     }
 
@@ -2106,9 +2460,7 @@ class HabitTrackerViewModel : ViewModel() {
             streakShields.intValue = root.optInt("streakShields", 2)
 
             claimedQuestKeys.clear()
-            root.optJSONArray("claimedQuests")?.let { arr ->
-                for (i in 0 until arr.length()) claimedQuestKeys.add(arr.optString(i))
-            }
+            root.optJSONArray("claimedQuests")?.let { arr -> for (i in 0 until arr.length()) claimedQuestKeys.add(arr.optString(i)) }
 
             habits.clear()
             val habitsArr = root.optJSONArray("habits") ?: JSONArray()
@@ -2119,20 +2471,14 @@ class HabitTrackerViewModel : ViewModel() {
                 logsObj?.keys()?.forEach { k -> logsMap[k] = logsObj.optDouble(k, 0.0).toFloat() }
                 habits.add(
                     Habit(
-                        id = o.optString("id", UUID.randomUUID().toString()),
-                        title = o.optString("title"),
-                        emoji = o.optString("emoji", "⚡"),
-                        category = o.optString("category", "Growth"),
+                        id = o.optString("id", UUID.randomUUID().toString()), title = o.optString("title"),
+                        emoji = o.optString("emoji", "⚡"), category = o.optString("category", "Growth"),
                         timeOfDay = runCatching { TimeOfDay.valueOf(o.optString("timeOfDay")) }.getOrDefault(TimeOfDay.ANYTIME),
                         habitStackingCue = o.optString("habitStackingCue", ""),
                         type = runCatching { HabitType.valueOf(o.optString("type")) }.getOrDefault(HabitType.CHECKLIST),
-                        colorHex = o.optLong("colorHex", 0xFF34D399),
-                        targetValue = o.optDouble("targetValue", 1.0).toFloat(),
-                        unit = o.optString("unit", "times"),
-                        stepSize = o.optDouble("stepSize", 1.0).toFloat(),
-                        reminderTime = o.optString("reminderTime", ""),
-                        customSoundUri = o.optString("customSoundUri", ""),
-                        logs = logsMap
+                        colorHex = o.optLong("colorHex", 0xFF34D399), targetValue = o.optDouble("targetValue", 1.0).toFloat(),
+                        unit = o.optString("unit", "times"), stepSize = o.optDouble("stepSize", 1.0).toFloat(),
+                        reminderTime = o.optString("reminderTime", ""), customSoundUri = o.optString("customSoundUri", ""), logs = logsMap
                     )
                 )
             }
@@ -2149,21 +2495,14 @@ class HabitTrackerViewModel : ViewModel() {
                 }
                 todos.add(
                     TodoTask(
-                        id = o.optString("id", UUID.randomUUID().toString()),
-                        title = o.optString("title"),
+                        id = o.optString("id", UUID.randomUUID().toString()), title = o.optString("title"),
                         category = o.optString("category", "Personal"),
                         priority = runCatching { TodoPriority.valueOf(o.optString("priority")) }.getOrDefault(TodoPriority.P2_HIGH),
-                        date = o.optString("date", LocalDate.now().toString()),
-                        timeBlock = o.optString("timeBlock", "Anytime"),
-                        reminderTime = o.optString("reminderTime", ""),
-                        customSoundUri = o.optString("customSoundUri", ""),
-                        isCompleted = o.optBoolean("isCompleted", false),
-                        isRecurring = o.optBoolean("isRecurring", false),
-                        lastCompletedDate = o.optString("lastCompletedDate", ""),
-                        renewalStreak = o.optInt("renewalStreak", 0),
-                        estimatedMinutes = o.optInt("estimatedMinutes", 25),
-                        subTasks = subs,
-                        notes = o.optString("notes", "")
+                        date = o.optString("date", LocalDate.now().toString()), timeBlock = o.optString("timeBlock", "Anytime"),
+                        reminderTime = o.optString("reminderTime", ""), customSoundUri = o.optString("customSoundUri", ""),
+                        isCompleted = o.optBoolean("isCompleted", false), isRecurring = o.optBoolean("isRecurring", false),
+                        lastCompletedDate = o.optString("lastCompletedDate", ""), renewalStreak = o.optInt("renewalStreak", 0),
+                        estimatedMinutes = o.optInt("estimatedMinutes", 25), subTasks = subs, notes = o.optString("notes", "")
                     )
                 )
             }
@@ -2178,28 +2517,19 @@ class HabitTrackerViewModel : ViewModel() {
                     val w = wArr.getJSONObject(j)
                     workLogs.add(
                         GoalWorkLog(
-                            id = w.optString("id", UUID.randomUUID().toString()),
-                            date = w.optString("date", LocalDate.now().toString()),
-                            workSummary = w.optString("workSummary", ""),
-                            progressDelta = w.optDouble("progressDelta", 0.0).toFloat(),
-                            minutesSpent = w.optInt("minutesSpent", 30)
+                            w.optString("id", UUID.randomUUID().toString()), w.optString("date", LocalDate.now().toString()),
+                            w.optString("workSummary", ""), w.optDouble("progressDelta", 0.0).toFloat(), w.optInt("minutesSpent", 30)
                         )
                     )
                 }
                 goals.add(
                     GoalItem(
-                        id = o.optString("id", UUID.randomUUID().toString()),
-                        title = o.optString("title"),
-                        emoji = o.optString("emoji", "🎯"),
-                        category = o.optString("category", "Career"),
-                        description = o.optString("description", ""),
-                        deadlineIso = o.optString("deadlineIso", LocalDate.now().plusDays(30).toString()),
-                        targetValue = o.optDouble("targetValue", 100.0).toFloat(),
-                        currentValue = o.optDouble("currentValue", 0.0).toFloat(),
-                        unit = o.optString("unit", "%"),
-                        colorHex = o.optLong("colorHex", 0xFF38BDF8),
-                        dailyLogs = workLogs,
-                        createdAt = o.optString("createdAt", LocalDate.now().toString())
+                        id = o.optString("id", UUID.randomUUID().toString()), title = o.optString("title"),
+                        emoji = o.optString("emoji", "🎯"), category = o.optString("category", "Career"),
+                        description = o.optString("description", ""), deadlineIso = o.optString("deadlineIso", LocalDate.now().plusDays(30).toString()),
+                        targetValue = o.optDouble("targetValue", 100.0).toFloat(), currentValue = o.optDouble("currentValue", 0.0).toFloat(),
+                        unit = o.optString("unit", "%"), colorHex = o.optLong("colorHex", 0xFF38BDF8),
+                        dailyLogs = workLogs, createdAt = o.optString("createdAt", LocalDate.now().toString())
                     )
                 )
             }
@@ -2210,12 +2540,9 @@ class HabitTrackerViewModel : ViewModel() {
                 val o = hourlyArr.getJSONObject(i)
                 hourlyLogs.add(
                     HourlyLogItem(
-                        id = o.optString("id", UUID.randomUUID().toString()),
-                        date = o.optString("date", LocalDate.now().toString()),
-                        hour24 = o.optInt("hour24", 9),
-                        activityNote = o.optString("activityNote", ""),
-                        status = runCatching { HourProductivityStatus.valueOf(o.optString("status")) }
-                            .getOrDefault(HourProductivityStatus.PRODUCTIVE)
+                        o.optString("id", UUID.randomUUID().toString()), o.optString("date", LocalDate.now().toString()),
+                        o.optInt("hour24", 9), o.optString("activityNote", ""),
+                        runCatching { HourProductivityStatus.valueOf(o.optString("status")) }.getOrDefault(HourProductivityStatus.PRODUCTIVE)
                     )
                 )
             }
@@ -2224,26 +2551,15 @@ class HabitTrackerViewModel : ViewModel() {
             val jArr = root.optJSONArray("journals") ?: JSONArray()
             for (i in 0 until jArr.length()) {
                 val o = jArr.getJSONObject(i)
-                val actions = mutableListOf<String>()
-                o.optJSONArray("actionItems")?.let { arr -> for (k in 0 until arr.length()) actions.add(arr.optString(k)) }
-                val photos = mutableListOf<String>()
-                o.optJSONArray("photoUris")?.let { arr -> for (k in 0 until arr.length()) photos.add(arr.optString(k)) }
-                val tags = mutableListOf<String>()
-                o.optJSONArray("tags")?.let { arr -> for (k in 0 until arr.length()) tags.add(arr.optString(k)) }
+                val actions = mutableListOf<String>(); o.optJSONArray("actionItems")?.let { a -> for (k in 0 until a.length()) actions.add(a.optString(k)) }
+                val photos = mutableListOf<String>(); o.optJSONArray("photoUris")?.let { a -> for (k in 0 until a.length()) photos.add(a.optString(k)) }
+                val tags = mutableListOf<String>(); o.optJSONArray("tags")?.let { a -> for (k in 0 until a.length()) tags.add(a.optString(k)) }
                 journals.add(
                     JournalEntry(
-                        id = o.optString("id", UUID.randomUUID().toString()),
-                        date = o.optString("date"),
-                        isoDate = o.optString("isoDate", LocalDate.now().toString()),
-                        title = o.optString("title", "Daily Reflection"),
-                        moodEmoji = o.optString("moodEmoji", "🌟"),
-                        energyScore = o.optInt("energyScore", 8),
-                        gratitudeOrWins = o.optString("gratitudeOrWins", ""),
-                        dailyStory = o.optString("dailyStory", ""),
-                        frictionOrMistakes = o.optString("frictionOrMistakes", ""),
-                        actionItems = actions,
-                        photoUris = photos,
-                        tags = tags
+                        o.optString("id", UUID.randomUUID().toString()), o.optString("date"),
+                        o.optString("isoDate", LocalDate.now().toString()), o.optString("title", "Daily Reflection"),
+                        o.optString("moodEmoji", "🌟"), o.optInt("energyScore", 8), o.optString("gratitudeOrWins", ""),
+                        o.optString("dailyStory", ""), o.optString("frictionOrMistakes", ""), actions, photos, tags
                     )
                 )
             }
@@ -2252,30 +2568,17 @@ class HabitTrackerViewModel : ViewModel() {
             val nArr = root.optJSONArray("notes") ?: JSONArray()
             for (i in 0 until nArr.length()) {
                 val o = nArr.getJSONObject(i)
-                val takeaways = mutableListOf<String>()
-                o.optJSONArray("keyTakeaways")?.let { arr -> for (k in 0 until arr.length()) takeaways.add(arr.optString(k)) }
-                val flashcards = mutableListOf<FlashcardItem>()
-                o.optJSONArray("flashcards")?.let { arr ->
-                    for (k in 0 until arr.length()) {
-                        val f = arr.getJSONObject(k)
-                        flashcards.add(FlashcardItem(f.optString("question"), f.optString("answer")))
-                    }
+                val takeaways = mutableListOf<String>(); o.optJSONArray("keyTakeaways")?.let { a -> for (k in 0 until a.length()) takeaways.add(a.optString(k)) }
+                val flashcards = mutableListOf<FlashcardItem>(); o.optJSONArray("flashcards")?.let { a ->
+                    for (k in 0 until a.length()) { val f = a.getJSONObject(k); flashcards.add(FlashcardItem(f.optString("question"), f.optString("answer"))) }
                 }
                 notes.add(
                     NotebookEntry(
-                        id = o.optString("id", UUID.randomUUID().toString()),
-                        category = runCatching { NoteCategory.valueOf(o.optString("category")) }.getOrDefault(NoteCategory.BOOK_SUMMARY),
-                        title = o.optString("title"),
-                        authorOrSubtitle = o.optString("authorOrSubtitle"),
-                        rating = o.optInt("rating", 5),
-                        readingProgress = o.optInt("readingProgress", 100),
-                        isPinned = o.optBoolean("isPinned", false),
-                        coverColorHex = o.optLong("coverColorHex", 0xFFA855F7),
-                        favoriteQuote = o.optString("favoriteQuote", ""),
-                        keyTakeaways = takeaways,
-                        detailedNotes = o.optString("detailedNotes", ""),
-                        flashcards = flashcards,
-                        updatedAt = o.optString("updatedAt", "")
+                        o.optString("id", UUID.randomUUID().toString()),
+                        runCatching { NoteCategory.valueOf(o.optString("category")) }.getOrDefault(NoteCategory.BOOK_SUMMARY),
+                        o.optString("title"), o.optString("authorOrSubtitle"), o.optInt("rating", 5),
+                        o.optInt("readingProgress", 100), o.optBoolean("isPinned", false), o.optLong("coverColorHex", 0xFFA855F7),
+                        o.optString("favoriteQuote", ""), takeaways, o.optString("detailedNotes", ""), flashcards, o.optString("updatedAt", "")
                     )
                 )
             }
@@ -2286,13 +2589,7 @@ class HabitTrackerViewModel : ViewModel() {
         }
     }
 
-    fun awardXpAndCelebrate(
-        context: Context,
-        title: String,
-        subtitle: String,
-        xpEarned: Int = 25,
-        customSoundUri: String = ""
-    ) {
+    fun awardXpAndCelebrate(context: Context, title: String, subtitle: String, xpEarned: Int = 25, customSoundUri: String = "") {
         val oldStage = cachedCharacterStats.value.stage
         val oldLevel = userLevel
         val combo = cachedCharacterStats.value.comboMultiplier
@@ -2323,7 +2620,7 @@ class HabitTrackerViewModel : ViewModel() {
         persistStateAsync(context)
 
         viewModelScope.launch {
-            delay(2600)
+            delay(2500)
             showCelebration.value = false
         }
     }
@@ -2352,6 +2649,7 @@ class HabitTrackerViewModel : ViewModel() {
         isFocusTimerRunning.value = false
         timerJob?.cancel()
         focusRemainingSeconds.longValue = focusTotalSeconds.longValue
+        setAmbientSound(AmbientSoundMode.OFF)
     }
 
     private fun runTimerLoop(context: Context) {
@@ -2363,6 +2661,7 @@ class HabitTrackerViewModel : ViewModel() {
             }
             if (focusRemainingSeconds.longValue <= 0L) {
                 isFocusTimerRunning.value = false
+                setAmbientSound(AmbientSoundMode.OFF)
                 val mins = (focusTotalSeconds.longValue / 60f).coerceAtLeast(1f)
                 var habitCustomSound = ""
                 activeFocusHabitId.value?.let { id ->
@@ -2371,13 +2670,7 @@ class HabitTrackerViewModel : ViewModel() {
                         setHabitMeasurement(context, h, h.valueOn(LocalDate.now()) + mins)
                     }
                 }
-                awardXpAndCelebrate(
-                    context = context,
-                    title = "⏱️ Focus Block Complete",
-                    subtitle = "${activeFocusTitle.value} finished cleanly",
-                    xpEarned = 45,
-                    customSoundUri = habitCustomSound
-                )
+                awardXpAndCelebrate(context, "⏱️ Focus Block Complete", "${activeFocusTitle.value} finished cleanly", 45, habitCustomSound)
             }
         }
     }
@@ -2385,44 +2678,27 @@ class HabitTrackerViewModel : ViewModel() {
     fun toggleOrStepHabit(context: Context, habit: Habit, date: LocalDate = selectedDate.value) {
         val index = habits.indexOfFirst { it.id == habit.id }
         if (index == -1) return
-
         val key = date.toString()
         val currentVal = habit.logs[key] ?: 0f
         val updatedLogs = habit.logs.toMutableMap()
         val wasDoneBefore = habit.isCompletedOn(date)
 
         when (habit.type) {
-            HabitType.CHECKLIST -> {
-                if (currentVal >= habit.targetValue) updatedLogs.remove(key)
-                else updatedLogs[key] = habit.targetValue
-            }
-            HabitType.MEASUREMENT, HabitType.FOCUS_TIMER -> {
-                updatedLogs[key] = currentVal + habit.stepSize
-            }
-            HabitType.QUIT_SHIELD -> {
-                when {
-                    currentVal == 0f -> updatedLogs[key] = 1f
-                    currentVal > 0f -> updatedLogs[key] = -1f
-                    else -> updatedLogs.remove(key)
-                }
+            HabitType.CHECKLIST -> if (currentVal >= habit.targetValue) updatedLogs.remove(key) else updatedLogs[key] = habit.targetValue
+            HabitType.MEASUREMENT, HabitType.FOCUS_TIMER -> updatedLogs[key] = currentVal + habit.stepSize
+            HabitType.QUIT_SHIELD -> when {
+                currentVal == 0f -> updatedLogs[key] = 1f
+                currentVal > 0f -> updatedLogs[key] = -1f
+                else -> updatedLogs.remove(key)
             }
         }
-
         val updated = habit.copy(logs = updatedLogs)
         habits[index] = updated
         refreshCachedMetrics()
 
         if (!wasDoneBefore && updated.isCompletedOn(date)) {
-            awardXpAndCelebrate(
-                context = context,
-                title = "${updated.emoji} ${updated.title} Complete",
-                subtitle = "🔥 ${updated.currentStreak()}-day streak • Armor progression increased",
-                xpEarned = 35,
-                customSoundUri = updated.customSoundUri
-            )
-        } else {
-            persistStateAsync(context)
-        }
+            awardXpAndCelebrate(context, "${updated.emoji} ${updated.title} Complete", "🔥 ${updated.currentStreak()}-day streak • Brain Mood boosted!", 35, updated.customSoundUri)
+        } else persistStateAsync(context)
     }
 
     fun setHabitMeasurement(context: Context, habit: Habit, newAmount: Float, date: LocalDate = selectedDate.value) {
@@ -2430,105 +2706,58 @@ class HabitTrackerViewModel : ViewModel() {
         if (index == -1) return
         val wasDone = habit.isCompletedOn(date)
         val updatedLogs = habit.logs.toMutableMap()
-        if (newAmount <= 0f) updatedLogs.remove(date.toString())
-        else updatedLogs[date.toString()] = newAmount
+        if (newAmount <= 0f) updatedLogs.remove(date.toString()) else updatedLogs[date.toString()] = newAmount
 
         val updated = habit.copy(logs = updatedLogs)
         habits[index] = updated
         refreshCachedMetrics()
 
         if (!wasDone && updated.isCompletedOn(date)) {
-            awardXpAndCelebrate(
-                context = context,
-                title = "${updated.emoji} Target Reached",
-                subtitle = "$newAmount ${updated.unit} logged for ${updated.title}",
-                xpEarned = 35,
-                customSoundUri = updated.customSoundUri
-            )
-        } else {
-            persistStateAsync(context)
-        }
+            awardXpAndCelebrate(context, "${updated.emoji} Target Reached", "$newAmount ${updated.unit} logged for ${updated.title}", 35, updated.customSoundUri)
+        } else persistStateAsync(context)
     }
 
     fun saveOrUpdateHabit(
-        context: Context,
-        existingId: String?,
-        title: String,
-        emoji: String,
-        category: String,
-        timeOfDay: TimeOfDay,
-        cue: String,
-        type: HabitType,
-        colorHex: Long,
-        targetValue: Float,
-        unit: String,
-        stepSize: Float,
-        reminderTime: String,
-        customSoundUri: String = ""
+        context: Context, existingId: String?, title: String, emoji: String, category: String, timeOfDay: TimeOfDay,
+        cue: String, type: HabitType, colorHex: Long, targetValue: Float, unit: String, stepSize: Float,
+        reminderTime: String, customSoundUri: String = ""
     ) {
         val cleanTitle = title.trim()
         if (cleanTitle.isEmpty()) return
-
         if (customSoundUri.isNotBlank()) {
-            try {
-                context.contentResolver.takePersistableUriPermission(Uri.parse(customSoundUri), Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            } catch (_: Exception) {
-            }
+            try { context.contentResolver.takePersistableUriPermission(Uri.parse(customSoundUri), Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: Exception) {}
         }
 
         if (existingId != null) {
             val idx = habits.indexOfFirst { it.id == existingId }
             if (idx != -1) {
                 val updated = habits[idx].copy(
-                    title = cleanTitle,
-                    emoji = emoji.ifBlank { "⚡" },
-                    category = category.ifBlank { "Growth" },
-                    timeOfDay = timeOfDay,
-                    habitStackingCue = cue.trim(),
-                    type = type,
-                    colorHex = colorHex,
-                    targetValue = targetValue.coerceAtLeast(0.1f),
-                    unit = unit.ifBlank { "times" },
-                    stepSize = stepSize.coerceAtLeast(0.1f),
-                    reminderTime = reminderTime.trim(),
-                    customSoundUri = customSoundUri.trim()
+                    title = cleanTitle, emoji = emoji.ifBlank { "⚡" }, category = category.ifBlank { "Growth" },
+                    timeOfDay = timeOfDay, habitStackingCue = cue.trim(), type = type, colorHex = colorHex,
+                    targetValue = targetValue.coerceAtLeast(0.1f), unit = unit.ifBlank { "times" },
+                    stepSize = stepSize.coerceAtLeast(0.1f), reminderTime = reminderTime.trim(), customSoundUri = customSoundUri.trim()
                 )
                 habits[idx] = updated
-                ReminderScheduler.scheduleReminder(context, updated.id, updated.title, updated.reminderTime, isHabit = true, isRecurring = true, customSoundUri = updated.customSoundUri)
-                refreshCachedMetrics()
-                refreshNotificationHealth(context)
-                persistStateAsync(context)
+                ReminderScheduler.scheduleReminder(context, updated.id, updated.title, updated.reminderTime, true, true, updated.customSoundUri)
+                refreshCachedMetrics(); refreshNotificationHealth(context); persistStateAsync(context)
                 return
             }
         }
-
         val newHabit = Habit(
-            title = cleanTitle,
-            emoji = emoji.ifBlank { "⚡" },
-            category = category.ifBlank { "Growth" },
-            timeOfDay = timeOfDay,
-            habitStackingCue = cue.trim(),
-            type = type,
-            colorHex = colorHex,
-            targetValue = targetValue.coerceAtLeast(0.1f),
-            unit = unit.ifBlank { "times" },
-            stepSize = stepSize.coerceAtLeast(0.1f),
-            reminderTime = reminderTime.trim(),
-            customSoundUri = customSoundUri.trim()
+            title = cleanTitle, emoji = emoji.ifBlank { "⚡" }, category = category.ifBlank { "Growth" },
+            timeOfDay = timeOfDay, habitStackingCue = cue.trim(), type = type, colorHex = colorHex,
+            targetValue = targetValue.coerceAtLeast(0.1f), unit = unit.ifBlank { "times" },
+            stepSize = stepSize.coerceAtLeast(0.1f), reminderTime = reminderTime.trim(), customSoundUri = customSoundUri.trim()
         )
         habits.add(0, newHabit)
-        ReminderScheduler.scheduleReminder(context, newHabit.id, newHabit.title, newHabit.reminderTime, isHabit = true, isRecurring = true, customSoundUri = newHabit.customSoundUri)
-        refreshCachedMetrics()
-        refreshNotificationHealth(context)
-        persistStateAsync(context)
+        ReminderScheduler.scheduleReminder(context, newHabit.id, newHabit.title, newHabit.reminderTime, true, true, newHabit.customSoundUri)
+        refreshCachedMetrics(); refreshNotificationHealth(context); persistStateAsync(context)
     }
 
     fun deleteHabit(context: Context, habitId: String) {
         ReminderScheduler.cancelReminder(context, habitId)
         habits.removeAll { it.id == habitId }
-        refreshCachedMetrics()
-        refreshNotificationHealth(context)
-        persistStateAsync(context)
+        refreshCachedMetrics(); refreshNotificationHealth(context); persistStateAsync(context)
     }
 
     fun toggleTodo(context: Context, task: TodoTask) {
@@ -2537,26 +2766,13 @@ class HabitTrackerViewModel : ViewModel() {
         val nowDone = !task.isCompleted
         val todayStr = LocalDate.now().toString()
         val newStreak = if (nowDone) task.renewalStreak + 1 else (task.renewalStreak - 1).coerceAtLeast(0)
-
-        todos[idx] = task.copy(
-            isCompleted = nowDone,
-            lastCompletedDate = if (nowDone) todayStr else task.lastCompletedDate,
-            renewalStreak = newStreak
-        )
+        todos[idx] = task.copy(isCompleted = nowDone, lastCompletedDate = if (nowDone) todayStr else task.lastCompletedDate, renewalStreak = newStreak)
         refreshCachedMetrics()
 
         if (nowDone) {
             val renewNote = if (task.isRecurring) " • 🔄 Auto-renews tomorrow" else ""
-            awardXpAndCelebrate(
-                context = context,
-                title = "🎯 Mission Complete",
-                subtitle = "\"${task.title}\"$renewNote",
-                xpEarned = task.priority.xpReward,
-                customSoundUri = task.customSoundUri
-            )
-        } else {
-            persistStateAsync(context)
-        }
+            awardXpAndCelebrate(context, "🎯 Mission Complete", "\"${task.title}\"$renewNote", task.priority.xpReward, task.customSoundUri)
+        } else persistStateAsync(context)
     }
 
     fun toggleSubTask(context: Context, task: TodoTask, subTaskId: String) {
@@ -2566,201 +2782,106 @@ class HabitTrackerViewModel : ViewModel() {
         val allDone = updatedSubs.isNotEmpty() && updatedSubs.all { it.isDone }
         val wasDone = task.isCompleted
         val todayStr = LocalDate.now().toString()
-
         todos[idx] = task.copy(
-            subTasks = updatedSubs,
-            isCompleted = allDone,
+            subTasks = updatedSubs, isCompleted = allDone,
             lastCompletedDate = if (allDone) todayStr else task.lastCompletedDate,
             renewalStreak = if (!wasDone && allDone) task.renewalStreak + 1 else task.renewalStreak
         )
         refreshCachedMetrics()
-
-        if (!wasDone && allDone) {
-            awardXpAndCelebrate(
-                context = context,
-                title = "✅ All Subtasks Complete",
-                subtitle = task.title,
-                xpEarned = task.priority.xpReward,
-                customSoundUri = task.customSoundUri
-            )
-        } else {
-            persistStateAsync(context)
-        }
+        if (!wasDone && allDone) awardXpAndCelebrate(context, "✅ All Subtasks Complete", task.title, task.priority.xpReward, task.customSoundUri)
+        else persistStateAsync(context)
     }
 
     fun saveOrUpdateTodoTask(
-        context: Context,
-        existingId: String?,
-        title: String,
-        category: String,
-        priority: TodoPriority,
-        reminderTime: String,
-        estimatedMinutes: Int,
-        subTaskTitles: List<String>,
-        isRecurring: Boolean,
-        customSoundUri: String = ""
+        context: Context, existingId: String?, title: String, category: String, priority: TodoPriority,
+        reminderTime: String, estimatedMinutes: Int, subTaskTitles: List<String>, isRecurring: Boolean, customSoundUri: String = ""
     ) {
         val cleanTitle = title.trim()
         if (cleanTitle.isEmpty()) return
-
         if (customSoundUri.isNotBlank()) {
-            try {
-                context.contentResolver.takePersistableUriPermission(Uri.parse(customSoundUri), Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            } catch (_: Exception) {
-            }
+            try { context.contentResolver.takePersistableUriPermission(Uri.parse(customSoundUri), Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: Exception) {}
         }
 
         if (existingId != null) {
             val idx = todos.indexOfFirst { it.id == existingId }
             if (idx != -1) {
                 val oldSubs = todos[idx].subTasks.associateBy { it.title }
-                val mergedSubs = subTaskTitles.filter { it.isNotBlank() }.map { line ->
-                    val t = line.trim()
-                    oldSubs[t] ?: SubTask(title = t)
-                }
+                val mergedSubs = subTaskTitles.filter { it.isNotBlank() }.map { line -> val t = line.trim(); oldSubs[t] ?: SubTask(title = t) }
                 val updated = todos[idx].copy(
-                    title = cleanTitle,
-                    category = category.ifBlank { "Personal" },
-                    priority = priority,
-                    reminderTime = reminderTime.trim(),
-                    customSoundUri = customSoundUri.trim(),
-                    estimatedMinutes = estimatedMinutes,
-                    subTasks = mergedSubs,
-                    isRecurring = isRecurring
+                    title = cleanTitle, category = category.ifBlank { "Personal" }, priority = priority,
+                    reminderTime = reminderTime.trim(), customSoundUri = customSoundUri.trim(),
+                    estimatedMinutes = estimatedMinutes, subTasks = mergedSubs, isRecurring = isRecurring
                 )
                 todos[idx] = updated
-                ReminderScheduler.scheduleReminder(context, updated.id, updated.title, updated.reminderTime, isHabit = false, isRecurring = updated.isRecurring, customSoundUri = updated.customSoundUri)
-                refreshCachedMetrics()
-                refreshNotificationHealth(context)
-                persistStateAsync(context)
+                ReminderScheduler.scheduleReminder(context, updated.id, updated.title, updated.reminderTime, false, updated.isRecurring, updated.customSoundUri)
+                refreshCachedMetrics(); refreshNotificationHealth(context); persistStateAsync(context)
                 return
             }
         }
-
         val newTask = TodoTask(
-            title = cleanTitle,
-            category = category.ifBlank { "Personal" },
-            priority = priority,
-            reminderTime = reminderTime.trim(),
-            customSoundUri = customSoundUri.trim(),
-            estimatedMinutes = estimatedMinutes,
-            subTasks = subTaskTitles.filter { it.isNotBlank() }.map { SubTask(title = it.trim()) },
+            title = cleanTitle, category = category.ifBlank { "Personal" }, priority = priority,
+            reminderTime = reminderTime.trim(), customSoundUri = customSoundUri.trim(),
+            estimatedMinutes = estimatedMinutes, subTasks = subTaskTitles.filter { it.isNotBlank() }.map { SubTask(title = it.trim()) },
             isRecurring = isRecurring
         )
         todos.add(0, newTask)
-        ReminderScheduler.scheduleReminder(context, newTask.id, newTask.title, newTask.reminderTime, isHabit = false, isRecurring = newTask.isRecurring, customSoundUri = newTask.customSoundUri)
-        refreshCachedMetrics()
-        refreshNotificationHealth(context)
-        persistStateAsync(context)
+        ReminderScheduler.scheduleReminder(context, newTask.id, newTask.title, newTask.reminderTime, false, newTask.isRecurring, newTask.customSoundUri)
+        refreshCachedMetrics(); refreshNotificationHealth(context); persistStateAsync(context)
     }
 
     fun deleteTodoTask(context: Context, id: String) {
         ReminderScheduler.cancelReminder(context, id)
         todos.removeAll { it.id == id }
-        refreshCachedMetrics()
-        refreshNotificationHealth(context)
-        persistStateAsync(context)
+        refreshCachedMetrics(); refreshNotificationHealth(context); persistStateAsync(context)
     }
 
     fun saveOrUpdateJournalEntry(
-        context: Context,
-        existingId: String?,
-        title: String,
-        moodEmoji: String,
-        energyScore: Int,
-        wins: String,
-        story: String,
-        mistakes: String,
-        actions: List<String>,
-        photos: List<String>,
-        tags: List<String>,
-        pushActionsToTodo: Boolean
+        context: Context, existingId: String?, title: String, moodEmoji: String, energyScore: Int,
+        wins: String, story: String, mistakes: String, actions: List<String>, photos: List<String>,
+        tags: List<String>, pushActionsToTodo: Boolean
     ) {
-        photos.forEach { uriStr ->
-            try {
-                context.contentResolver.takePersistableUriPermission(Uri.parse(uriStr), Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            } catch (_: Exception) {
-            }
-        }
-
+        photos.forEach { uriStr -> try { context.contentResolver.takePersistableUriPermission(Uri.parse(uriStr), Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: Exception) {} }
         if (existingId != null) {
             val idx = journals.indexOfFirst { it.id == existingId }
             if (idx != -1) {
                 journals[idx] = journals[idx].copy(
-                    title = title.ifBlank { "Daily Reflection" },
-                    moodEmoji = moodEmoji,
-                    energyScore = energyScore,
-                    gratitudeOrWins = wins,
-                    dailyStory = story,
-                    frictionOrMistakes = mistakes,
-                    actionItems = actions,
-                    photoUris = photos,
-                    tags = tags
+                    title = title.ifBlank { "Daily Reflection" }, moodEmoji = moodEmoji, energyScore = energyScore,
+                    gratitudeOrWins = wins, dailyStory = story, frictionOrMistakes = mistakes, actionItems = actions, photoUris = photos, tags = tags
                 )
-                refreshCachedMetrics()
-                persistStateAsync(context)
-                return
+                refreshCachedMetrics(); persistStateAsync(context); return
             }
         }
-
-        journals.add(
-            0,
-            JournalEntry(
-                title = title.ifBlank { "Daily Reflection" },
-                moodEmoji = moodEmoji,
-                energyScore = energyScore,
-                gratitudeOrWins = wins,
-                dailyStory = story,
-                frictionOrMistakes = mistakes,
-                actionItems = actions,
-                photoUris = photos,
-                tags = tags
-            )
-        )
-
+        journals.add(0, JournalEntry(title = title.ifBlank { "Daily Reflection" }, moodEmoji = moodEmoji, energyScore = energyScore, gratitudeOrWins = wins, dailyStory = story, frictionOrMistakes = mistakes, actionItems = actions, photoUris = photos, tags = tags))
         if (pushActionsToTodo) {
-            actions.filter { it.isNotBlank() }.forEach { act ->
-                todos.add(0, TodoTask(title = act.trim(), category = "Reflection Action", priority = TodoPriority.P1_CRITICAL))
-            }
+            actions.filter { it.isNotBlank() }.forEach { act -> todos.add(0, TodoTask(title = act.trim(), category = "Reflection Action", priority = TodoPriority.P1_CRITICAL)) }
         }
-
         refreshCachedMetrics()
-        awardXpAndCelebrate(context, "📓 Reflection Logged", "Clarity strengthens daily execution", xpEarned = 35)
+        awardXpAndCelebrate(context, "📓 Reflection Logged", "Clarity strengthens daily execution", 35)
     }
 
     fun deleteJournalEntry(context: Context, id: String) {
         journals.removeAll { it.id == id }
-        refreshCachedMetrics()
-        persistStateAsync(context)
+        refreshCachedMetrics(); persistStateAsync(context)
     }
 
     fun saveOrUpdateNotebookEntry(context: Context, existingId: String?, entry: NotebookEntry) {
         if (existingId != null) {
             val idx = notes.indexOfFirst { it.id == existingId }
-            if (idx != -1) {
-                notes[idx] = entry.copy(id = existingId)
-                refreshCachedMetrics()
-                persistStateAsync(context)
-                return
-            }
+            if (idx != -1) { notes[idx] = entry.copy(id = existingId); refreshCachedMetrics(); persistStateAsync(context); return }
         }
         notes.add(0, entry)
         refreshCachedMetrics()
-        awardXpAndCelebrate(context, "🧠 Saved to Vault", "\"${entry.title}\" indexed", xpEarned = 35)
+        awardXpAndCelebrate(context, "🧠 Saved to Vault", "\"${entry.title}\" indexed", 35)
     }
 
     fun togglePinNote(context: Context, id: String) {
         val idx = notes.indexOfFirst { it.id == id }
-        if (idx != -1) {
-            notes[idx] = notes[idx].copy(isPinned = !notes[idx].isPinned)
-            persistStateAsync(context)
-        }
+        if (idx != -1) { notes[idx] = notes[idx].copy(isPinned = !notes[idx].isPinned); persistStateAsync(context) }
     }
 
     fun deleteNotebookEntry(context: Context, id: String) {
         notes.removeAll { it.id == id }
-        refreshCachedMetrics()
-        persistStateAsync(context)
+        refreshCachedMetrics(); persistStateAsync(context)
     }
 
     fun syncToGoogleCloud(context: Context) {
@@ -2777,42 +2898,16 @@ class HabitTrackerViewModel : ViewModel() {
         goals.addAll(
             listOf(
                 GoalItem(
-                    title = "Master Cloud Architecture & Portfolio",
-                    emoji = "☁️",
-                    category = "Career",
+                    title = "Master Cloud Architecture & Portfolio", emoji = "☁️", category = "Career",
                     description = "Build production labs, sharpen hands-on projects, and hit target interview readiness.",
-                    deadlineIso = today.plusDays(45).toString(),
-                    targetValue = 60f,
-                    currentValue = 18f,
-                    unit = "hrs",
-                    colorHex = 0xFF38BDF8,
-                    dailyLogs = listOf(
-                        GoalWorkLog(
-                            date = today.minusDays(1).toString(),
-                            workSummary = "Configured multi-tier network architecture & documented diagrams",
-                            progressDelta = 2f,
-                            minutesSpent = 120
-                        )
-                    )
+                    deadlineIso = today.plusDays(45).toString(), targetValue = 60f, currentValue = 18f, unit = "hrs", colorHex = 0xFF38BDF8,
+                    dailyLogs = listOf(GoalWorkLog(date = today.minusDays(1).toString(), workSummary = "Configured multi-tier network architecture & documented diagrams", progressDelta = 2f, minutesSpent = 120))
                 ),
                 GoalItem(
-                    title = "Lean Athletic Conditioning Target",
-                    emoji = "🏋️",
-                    category = "Fitness",
+                    title = "Lean Athletic Conditioning Target", emoji = "🏋️", category = "Fitness",
                     description = "Consistent heavy strength sessions + sprint conditioning.",
-                    deadlineIso = today.plusDays(60).toString(),
-                    targetValue = 40f,
-                    currentValue = 12f,
-                    unit = "sessions",
-                    colorHex = 0xFF34D399,
-                    dailyLogs = listOf(
-                        GoalWorkLog(
-                            date = today.minusDays(1).toString(),
-                            workSummary = "Upper body pressing progression + 15m sprint intervals",
-                            progressDelta = 1f,
-                            minutesSpent = 65
-                        )
-                    )
+                    deadlineIso = today.plusDays(60).toString(), targetValue = 40f, currentValue = 12f, unit = "sessions", colorHex = 0xFF34D399,
+                    dailyLogs = listOf(GoalWorkLog(date = today.minusDays(1).toString(), workSummary = "Upper body pressing progression + 15m sprint intervals", progressDelta = 1f, minutesSpent = 65))
                 )
             )
         )
@@ -2823,91 +2918,22 @@ class HabitTrackerViewModel : ViewModel() {
         val todayStr = today.toString()
 
         val deepWorkLogs = mutableMapOf<String, Float>()
-        for (i in 1..14) {
-            if (i % 4 != 0) deepWorkLogs[today.minusDays(i.toLong()).toString()] = 90f
-        }
-        habits.add(
-            Habit(
-                title = "Deep Focus Sprint",
-                emoji = "🚀",
-                category = "Career",
-                timeOfDay = TimeOfDay.MORNING,
-                habitStackingCue = "After morning hydration",
-                type = HabitType.FOCUS_TIMER,
-                colorHex = 0xFF34D399,
-                targetValue = 90f,
-                unit = "mins",
-                stepSize = 30f,
-                reminderTime = "08:00",
-                logs = deepWorkLogs
-            )
-        )
+        for (i in 1..14) if (i % 4 != 0) deepWorkLogs[today.minusDays(i.toLong()).toString()] = 90f
+        habits.add(Habit(title = "Deep Focus Sprint", emoji = "🚀", category = "Career", timeOfDay = TimeOfDay.MORNING, habitStackingCue = "After morning hydration", type = HabitType.FOCUS_TIMER, colorHex = 0xFF34D399, targetValue = 90f, unit = "mins", stepSize = 30f, reminderTime = "08:00", logs = deepWorkLogs))
 
         val strengthLogs = mutableMapOf<String, Float>()
-        for (i in 1..14) {
-            if (i % 2 == 1) strengthLogs[today.minusDays(i.toLong()).toString()] = 1f
-        }
-        habits.add(
-            Habit(
-                title = "Strength & Conditioning",
-                emoji = "🏋️",
-                category = "Fitness",
-                timeOfDay = TimeOfDay.EVENING,
-                habitStackingCue = "6:00 PM training ritual",
-                type = HabitType.CHECKLIST,
-                colorHex = 0xFFA855F7,
-                targetValue = 1f,
-                unit = "session",
-                stepSize = 1f,
-                reminderTime = "18:00",
-                logs = strengthLogs
-            )
-        )
+        for (i in 1..14) if (i % 2 == 1) strengthLogs[today.minusDays(i.toLong()).toString()] = 1f
+        habits.add(Habit(title = "Strength & Conditioning", emoji = "🏋️", category = "Fitness", timeOfDay = TimeOfDay.EVENING, habitStackingCue = "6:00 PM training ritual", type = HabitType.CHECKLIST, colorHex = 0xFFA855F7, targetValue = 1f, unit = "session", stepSize = 1f, reminderTime = "18:00", logs = strengthLogs))
 
         val waterLogs = mutableMapOf<String, Float>()
         for (i in 1..10) waterLogs[today.minusDays(i.toLong()).toString()] = 3.0f
         waterLogs[todayStr] = 1.5f
-        habits.add(
-            Habit(
-                title = "Hydration Protocol",
-                emoji = "💧",
-                category = "Health",
-                timeOfDay = TimeOfDay.ALL,
-                habitStackingCue = "Keep 1L bottle on desk",
-                type = HabitType.MEASUREMENT,
-                colorHex = 0xFF38BDF8,
-                targetValue = 3.0f,
-                unit = "Liters",
-                stepSize = 0.5f,
-                reminderTime = "11:00",
-                logs = waterLogs
-            )
-        )
+        habits.add(Habit(title = "Hydration Protocol", emoji = "💧", category = "Health", timeOfDay = TimeOfDay.ALL, habitStackingCue = "Keep 1L bottle on desk", type = HabitType.MEASUREMENT, colorHex = 0xFF38BDF8, targetValue = 3.0f, unit = "Liters", stepSize = 0.5f, reminderTime = "11:00", logs = waterLogs))
 
         todos.addAll(
             listOf(
-                TodoTask(
-                    title = "Plan Top 3 High-Impact Outcomes",
-                    category = "Daily Ritual",
-                    priority = TodoPriority.P1_CRITICAL,
-                    reminderTime = "08:30",
-                    isRecurring = true,
-                    renewalStreak = 7,
-                    estimatedMinutes = 15,
-                    subTasks = listOf(
-                        SubTask(title = "Review goal deadlines", isDone = true),
-                        SubTask(title = "Protect 90m maker block")
-                    )
-                ),
-                TodoTask(
-                    title = "Evening Language & Reading Drill",
-                    category = "Growth",
-                    priority = TodoPriority.P2_HIGH,
-                    reminderTime = "21:00",
-                    isRecurring = true,
-                    renewalStreak = 10,
-                    estimatedMinutes = 30
-                )
+                TodoTask(title = "Plan Top 3 High-Impact Outcomes", category = "Daily Ritual", priority = TodoPriority.P1_CRITICAL, reminderTime = "08:30", isRecurring = true, renewalStreak = 7, estimatedMinutes = 15, subTasks = listOf(SubTask(title = "Review goal deadlines", isDone = true), SubTask(title = "Protect 90m maker block"))),
+                TodoTask(title = "Evening Language & Reading Drill", category = "Growth", priority = TodoPriority.P2_HIGH, reminderTime = "21:00", isRecurring = true, renewalStreak = 10, estimatedMinutes = 30)
             )
         )
 
@@ -2922,11 +2948,9 @@ class HabitTrackerViewModel : ViewModel() {
 
         journals.add(
             JournalEntry(
-                title = "Momentum & Daily Clarity",
-                moodEmoji = "🔥",
-                energyScore = 9,
+                title = "Momentum & Daily Clarity", moodEmoji = "🔥", energyScore = 9,
                 gratitudeOrWins = "Locked in a distraction-free morning block and logged goal progress.",
-                dailyStory = "Tracking every goal deadline alongside hourly execution makes progress tangible and keeps discipline sharp.",
+                dailyStory = "Watching my Brain Mood widget stay glowing green at the end of the day makes finishing every habit feel deeply satisfying.",
                 frictionOrMistakes = "Checked notifications briefly before lunch.",
                 actionItems = listOf("Keep phone on Do Not Disturb during focus sprints")
             )
@@ -2934,26 +2958,12 @@ class HabitTrackerViewModel : ViewModel() {
 
         notes.add(
             NotebookEntry(
-                category = NoteCategory.SECOND_BRAIN,
-                title = "Compounding Execution Systems",
-                authorOrSubtitle = "Personal Playbook",
-                rating = 5,
-                readingProgress = 100,
-                isPinned = true,
-                coverColorHex = 0xFF34D399,
+                category = NoteCategory.SECOND_BRAIN, title = "Compounding Execution Systems", authorOrSubtitle = "Personal Playbook",
+                rating = 5, readingProgress = 100, isPinned = true, coverColorHex = 0xFF34D399,
                 favoriteQuote = "Consistent systems outlast temporary bursts of willpower.",
-                keyTakeaways = listOf(
-                    "Break ambitious deadlines into measurable daily work logs.",
-                    "Track both productive hours and wasted hours honestly to sharpen awareness.",
-                    "Protect high-energy morning hours for your highest-leverage goal."
-                ),
+                keyTakeaways = listOf("Break ambitious deadlines into measurable daily work logs.", "Track both productive hours and wasted hours honestly.", "Protect high-energy morning hours for your top goal."),
                 detailedNotes = "Reviewing distilled principles in Sanctuary Mode keeps evening study calm and focused.",
-                flashcards = listOf(
-                    FlashcardItem(
-                        question = "What turns a long-term deadline into predictable results?",
-                        answer = "Daily measurable work logs combined with honest hourly audits."
-                    )
-                )
+                flashcards = listOf(FlashcardItem("What turns a long-term deadline into predictable results?", "Daily measurable work logs combined with honest hourly audits."))
             )
         )
     }
