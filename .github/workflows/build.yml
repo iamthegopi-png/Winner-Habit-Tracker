@@ -21,7 +21,7 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Auto-Configure Alpha Studio v7 Project, 3D Crest & 3 Studio Widgets
+      - name: Auto-Configure Modular Alpha Studio v7 Project & Widgets
         run: |
           mkdir -p app/src/main/java/com/vibrant/habittracker
           mkdir -p app/src/main/res/drawable
@@ -30,24 +30,18 @@ jobs:
           mkdir -p app/src/main/res/xml
           mkdir -p app/src/main/res/values
 
-          LATEST_CORE=$(git log --format="" --name-only | grep "HabitTrackerCore.kt" | head -n 1)
-          if [ -z "$LATEST_CORE" ]; then
-            LATEST_CORE=$(find . -name "HabitTrackerCore.kt" | head -n 1)
-          fi
-          if [ -n "$LATEST_CORE" ] && [ -f "$LATEST_CORE" ] && [ "$LATEST_CORE" != "app/src/main/java/com/vibrant/habittracker/HabitTrackerCore.kt" ] && [ "$LATEST_CORE" != "./app/src/main/java/com/vibrant/habittracker/HabitTrackerCore.kt" ]; then
-            cp "$LATEST_CORE" app/src/main/java/com/vibrant/habittracker/HabitTrackerCore.kt
-          fi
+          # Move any .kt files accidentally committed to the repository root into the package folder
+          for ktfile in *.kt; do
+            if [ -f "$ktfile" ]; then
+              cp "$ktfile" "app/src/main/java/com/vibrant/habittracker/$ktfile"
+              rm -f "$ktfile"
+            fi
+          done
 
-          LATEST_MAIN=$(git log --format="" --name-only | grep "MainActivity.kt" | head -n 1)
-          if [ -z "$LATEST_MAIN" ]; then
-            LATEST_MAIN=$(find . -name "MainActivity.kt" | head -n 1)
+          # Safety net: remove legacy monolithic HabitTrackerCore.kt once split files exist
+          if [ -f "app/src/main/java/com/vibrant/habittracker/ModelsAndTheme.kt" ]; then
+            rm -f app/src/main/java/com/vibrant/habittracker/HabitTrackerCore.kt
           fi
-          if [ -n "$LATEST_MAIN" ] && [ -f "$LATEST_MAIN" ] && [ "$LATEST_MAIN" != "app/src/main/java/com/vibrant/habittracker/MainActivity.kt" ] && [ "$LATEST_MAIN" != "./app/src/main/java/com/vibrant/habittracker/MainActivity.kt" ]; then
-            cp "$LATEST_MAIN" app/src/main/java/com/vibrant/habittracker/MainActivity.kt
-          fi
-
-          find . -maxdepth 2 -name "HabitTrackerCore.kt" -delete || true
-          find . -maxdepth 2 -name "MainActivity.kt" -delete || true
 
           # 1. Create gradle.properties
           cat << 'EOF' > gradle.properties
@@ -244,7 +238,6 @@ jobs:
           </shape>
           EOF
 
-          # Brain Widget Theme 1: Emerald Green (Peak / Complete)
           cat << 'EOF' > app/src/main/res/drawable/widget_brain_bg_emerald.xml
           <?xml version="1.0" encoding="utf-8"?>
           <shape xmlns:android="http://schemas.android.com/apk/res/android"
@@ -259,7 +252,6 @@ jobs:
           </shape>
           EOF
 
-          # Brain Widget Theme 2: Royal Sapphire Blue (Focused / On Track)
           cat << 'EOF' > app/src/main/res/drawable/widget_brain_bg_blue.xml
           <?xml version="1.0" encoding="utf-8"?>
           <shape xmlns:android="http://schemas.android.com/apk/res/android"
@@ -274,7 +266,6 @@ jobs:
           </shape>
           EOF
 
-          # Brain Widget Theme 3: Cosmic Purple (Great Flow / Momentum)
           cat << 'EOF' > app/src/main/res/drawable/widget_brain_bg_purple.xml
           <?xml version="1.0" encoding="utf-8"?>
           <shape xmlns:android="http://schemas.android.com/apk/res/android"
@@ -289,7 +280,6 @@ jobs:
           </shape>
           EOF
 
-          # Brain Widget Theme 4: Warm Dusk Amber (Afternoon Warning)
           cat << 'EOF' > app/src/main/res/drawable/widget_brain_bg_amber.xml
           <?xml version="1.0" encoding="utf-8"?>
           <shape xmlns:android="http://schemas.android.com/apk/res/android"
@@ -304,7 +294,6 @@ jobs:
           </shape>
           EOF
 
-          # Brain Widget Theme 5: Deep Crimson Wine Red (Day Ending / Rotten Brain)
           cat << 'EOF' > app/src/main/res/drawable/widget_brain_bg_crimson.xml
           <?xml version="1.0" encoding="utf-8"?>
           <shape xmlns:android="http://schemas.android.com/apk/res/android"
@@ -319,7 +308,7 @@ jobs:
           </shape>
           EOF
 
-          # 7. NEW WIDGET 3: STUDIO BRAIN MOOD WIDGET LAYOUT
+          # 7. Widget Layouts & Info XMLs
           cat << 'EOF' > app/src/main/res/layout/brain_widget_layout.xml
           <?xml version="1.0" encoding="utf-8"?>
           <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -329,7 +318,6 @@ jobs:
               android:background="@drawable/widget_brain_bg_blue"
               android:padding="18dp">
 
-              <!-- Top Left: Bold Fraction Score + Subtitle -->
               <LinearLayout
                   android:id="@+id/brain_widget_top_block"
                   android:layout_width="match_parent"
@@ -358,7 +346,6 @@ jobs:
                       android:textSize="13sp" />
               </LinearLayout>
 
-              <!-- Bottom Left: Reactive Status Headline + Habits/Tasks Breakdown -->
               <LinearLayout
                   android:id="@+id/brain_widget_bottom_block"
                   android:layout_width="wrap_content"
@@ -390,7 +377,6 @@ jobs:
                       android:textStyle="bold" />
               </LinearLayout>
 
-              <!-- Bottom Right: Studio-Rendered Reactive Brain Character -->
               <ImageView
                   android:id="@+id/brain_widget_character"
                   android:layout_width="116dp"
@@ -416,18 +402,14 @@ jobs:
               android:widgetCategory="home_screen" />
           EOF
 
-          # 8. Existing Habit & Mission Checklist Widget Layouts
           cat << 'EOF' > app/src/main/res/layout/habit_widget_layout.xml
           <?xml version="1.0" encoding="utf-8"?>
           <LinearLayout android:background="@drawable/widget_bg" android:id="@+id/widget_root" android:layout_height="match_parent" android:layout_width="match_parent" android:orientation="vertical" android:padding="14dp" xmlns:android="http://schemas.android.com/apk/res/android">
-
               <LinearLayout android:gravity="center_vertical" android:layout_height="wrap_content" android:layout_width="match_parent" android:orientation="horizontal">
                   <TextView android:id="@+id/widget_header_title" android:layout_height="wrap_content" android:layout_weight="1" android:layout_width="0dp" android:text="⚡ ALPHA HABITS" android:textColor="#FFF8FAFC" android:textSize="13sp" android:textStyle="bold"/>
                   <TextView android:id="@+id/widget_header_score" android:layout_height="wrap_content" android:layout_width="wrap_content" android:text="0/0 Done" android:textColor="#FF34D399" android:textSize="12sp" android:textStyle="bold"/>
               </LinearLayout>
-
               <TextView android:id="@+id/widget_subtitle" android:layout_height="wrap_content" android:layout_width="match_parent" android:paddingBottom="6dp" android:text="Complete daily disciplines to keep your mind sharp" android:textColor="#FF94A3B8" android:textSize="10sp"/>
-
               <LinearLayout android:gravity="center_vertical" android:id="@+id/widget_row_1" android:layout_height="wrap_content" android:layout_width="match_parent" android:orientation="horizontal" android:paddingBottom="4dp" android:paddingTop="4dp">
                   <TextView android:id="@+id/widget_title_1" android:layout_height="wrap_content" android:layout_weight="1" android:layout_width="0dp" android:singleLine="true" android:textColor="#FFF8FAFC" android:textSize="13sp"/>
                   <TextView android:background="@drawable/widget_btn_pending" android:gravity="center" android:id="@+id/widget_btn_1" android:layout_height="30dp" android:layout_width="34dp" android:text="✓" android:textColor="#FF34D399" android:textSize="14sp" android:textStyle="bold"/>
@@ -450,14 +432,11 @@ jobs:
           cat << 'EOF' > app/src/main/res/layout/task_widget_layout.xml
           <?xml version="1.0" encoding="utf-8"?>
           <LinearLayout android:background="@drawable/widget_bg" android:id="@+id/task_widget_root" android:layout_height="match_parent" android:layout_width="match_parent" android:orientation="vertical" android:padding="14dp" xmlns:android="http://schemas.android.com/apk/res/android">
-
               <LinearLayout android:gravity="center_vertical" android:layout_height="wrap_content" android:layout_width="match_parent" android:orientation="horizontal">
                   <TextView android:id="@+id/task_widget_header_title" android:layout_height="wrap_content" android:layout_weight="1" android:layout_width="0dp" android:text="🎯 ALPHA MISSIONS" android:textColor="#FFF8FAFC" android:textSize="13sp" android:textStyle="bold"/>
                   <TextView android:id="@+id/task_widget_header_score" android:layout_height="wrap_content" android:layout_width="wrap_content" android:text="0 Pending" android:textColor="#FFFBBF24" android:textSize="12sp" android:textStyle="bold"/>
               </LinearLayout>
-
               <TextView android:id="@+id/task_widget_subtitle" android:layout_height="wrap_content" android:layout_width="match_parent" android:paddingBottom="6dp" android:text="Check off priority tasks directly from your home screen" android:textColor="#FF94A3B8" android:textSize="10sp"/>
-
               <LinearLayout android:gravity="center_vertical" android:id="@+id/task_widget_row_1" android:layout_height="wrap_content" android:layout_width="match_parent" android:orientation="horizontal" android:paddingBottom="4dp" android:paddingTop="4dp">
                   <TextView android:id="@+id/task_widget_title_1" android:layout_height="wrap_content" android:layout_weight="1" android:layout_width="0dp" android:singleLine="true" android:textColor="#FFF8FAFC" android:textSize="13sp"/>
                   <TextView android:background="@drawable/widget_btn_pending" android:gravity="center" android:id="@+id/task_widget_btn_1" android:layout_height="30dp" android:layout_width="34dp" android:text="✓" android:textColor="#FF34D399" android:textSize="14sp" android:textStyle="bold"/>
@@ -503,7 +482,7 @@ jobs:
               android:widgetCategory="home_screen" />
           EOF
 
-          # 9. Create AndroidManifest.xml with ALL 3 Home Screen Widgets
+          # 8. Create AndroidManifest.xml with ALL 3 Home Screen Widgets
           cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -554,7 +533,6 @@ jobs:
                       </intent-filter>
                   </receiver>
 
-                  <!-- Widget 1: Alpha Habits Checklist -->
                   <receiver
                       android:name=".HabitWidgetProvider"
                       android:exported="true"
@@ -568,7 +546,6 @@ jobs:
                           android:resource="@xml/habit_widget_info" />
                   </receiver>
 
-                  <!-- Widget 2: Alpha Missions Checklist -->
                   <receiver
                       android:name=".TaskWidgetProvider"
                       android:exported="true"
@@ -582,7 +559,6 @@ jobs:
                           android:resource="@xml/task_widget_info" />
                   </receiver>
 
-                  <!-- Widget 3: Reactive Brain Mood Widget -->
                   <receiver
                       android:name=".BrainMoodWidgetProvider"
                       android:exported="true"
